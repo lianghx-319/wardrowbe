@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useItems } from '@/lib/hooks/use-items';
 import { cn } from '@/lib/utils';
 import type { Item } from '@/lib/types';
+import { itemTitleZh } from '@/lib/zh-labels';
 
 const PAGE_SIZE = 24;
 
@@ -25,7 +26,7 @@ export function ItemPicker({
   onToggle,
   hideNeedsWash = true,
   filterType,
-  emptyMessage = 'No items found',
+  emptyMessage = '没有找到衣物',
   heightClass = 'h-[360px]',
 }: ItemPickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,7 +100,7 @@ export function ItemPicker({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search wardrobe..."
+          placeholder="搜索衣橱..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 h-9"
@@ -138,7 +139,7 @@ export function ItemPicker({
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
                     <span className="text-xs text-muted-foreground">
-                      {item.type}
+                    {itemTitleZh(item)}
                     </span>
                   </div>
                 )}
@@ -151,7 +152,7 @@ export function ItemPicker({
                 )}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
                   <span className="text-[10px] sm:text-xs text-white font-medium truncate block">
-                    {item.name ?? item.type}
+                    {itemTitleZh(item)}
                   </span>
                 </div>
               </button>
@@ -169,7 +170,7 @@ export function ItemPicker({
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
             <span className="text-xs text-muted-foreground">
-              Loading more...
+              正在加载更多...
             </span>
           </div>
         )}
@@ -177,14 +178,14 @@ export function ItemPicker({
         {!isLoading && items.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
             {debouncedSearch
-              ? 'No items match your search'
+              ? '没有匹配搜索的衣物'
               : emptyMessage}
           </div>
         )}
 
         {!isLoading && !hasMore && items.length > 0 && (
           <div className="text-center text-xs text-muted-foreground py-3">
-            Showing all {totalItems} items
+            已显示全部 {totalItems} 件衣物
           </div>
         )}
       </div>

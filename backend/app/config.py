@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     ai_api_key: str | None = Field(default=None)
     ai_vision_model: str = Field(default="gpt-4o")  # comma-separated for model rotation
     ai_text_model: str = Field(default="gpt-4o")  # comma-separated for model rotation
+    ai_fallback_base_url: str | None = Field(default=None)
+    ai_fallback_api_key: str | None = Field(default=None)
+    ai_fallback_vision_model: str | None = Field(default=None)
+    ai_fallback_text_model: str | None = Field(default=None)
     ai_timeout: int = Field(default=120)
     ai_max_retries: int = Field(default=3)
     ai_max_tokens: int = Field(default=8000)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Loader2, Save, RotateCcw, Check, Plus, Trash2, ChevronUp, ChevronDown, Server, MapPin, Navigation, Ruler } from 'lucide-react';
+import { Loader2, Save, RotateCcw, Check, Plus, Trash2, ChevronUp, ChevronDown, Server, MapPin, Navigation, Ruler, Cloud, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,9 +18,11 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { usePreferences, useUpdatePreferences, useResetPreferences, useTestAIEndpoint } from '@/lib/hooks/use-preferences';
+import { ImmichAlbum, useImmichAlbums, useImmichConnection, useSaveImmichConnection, useTestImmichConnection } from '@/lib/hooks/use-immich';
 import { useUserProfile, useUpdateUserProfile } from '@/lib/hooks/use-user';
 import { CLOTHING_COLORS, OCCASIONS, Preferences, StyleProfile, AIEndpoint } from '@/lib/types';
 import { toF, toCelsius } from '@/lib/temperature';
+import { COLOR_ZH, MEASUREMENT_ZH, OCCASION_ZH, STYLE_ZH } from '@/lib/zh-labels';
 import { toast } from 'sonner';
 
 const CM_TO_IN = 0.393701;
@@ -47,10 +49,10 @@ const BODY_MEASUREMENT_FIELDS = [
 ] as const;
 
 const SIZE_FIELDS = [
-  { key: 'shirt_size', label: 'Shirt Size', placeholder: 'e.g. M, L, XL' },
-  { key: 'pants_size', label: 'Pants Size', placeholder: 'e.g. 32, 34' },
-  { key: 'dress_size', label: 'Dress Size', placeholder: 'e.g. 8, 10' },
-  { key: 'shoe_size', label: 'Shoe Size', placeholder: 'e.g. 10, 42' },
+  { key: 'shirt_size', label: '上衣尺码', placeholder: '例如：M、L、XL' },
+  { key: 'pants_size', label: '裤装尺码', placeholder: '例如：32、34' },
+  { key: 'dress_size', label: '连衣裙尺码', placeholder: '例如：8、10' },
+  { key: 'shoe_size', label: '鞋码', placeholder: '例如：10、42' },
 ] as const;
 
 function getErrorMessage(e: unknown, fallback: string): string {
@@ -100,7 +102,7 @@ function ColorPicker({
                   : 'border-muted-foreground/20 hover:border-muted-foreground/40'
               }`}
               style={{ backgroundColor: color.hex }}
-              title={color.name}
+              title={COLOR_ZH[color.value] || color.name}
             >
               {isSelected && (
                 <Check
@@ -125,7 +127,7 @@ function ColorPicker({
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: colorInfo?.hex }}
                 />
-                {colorInfo?.name}
+                {colorInfo ? COLOR_ZH[colorInfo.value] || colorInfo.name : color}
               </Badge>
             );
           })}
@@ -169,10 +171,19 @@ export default function SettingsPage() {
   const resetPreferences = useResetPreferences();
   const testEndpoint = useTestAIEndpoint();
   const updateUserProfile = useUpdateUserProfile();
+  const { data: immichConnection } = useImmichConnection();
+  const { data: immichAlbums, refetch: refetchImmichAlbums } = useImmichAlbums(!!immichConnection?.configured);
+  const testImmich = useTestImmichConnection();
+  const saveImmich = useSaveImmichConnection();
 
   const [formData, setFormData] = useState<Partial<Preferences>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [endpointTests, setEndpointTests] = useState<Record<number, EndpointTestResult>>({});
+  const [immichBaseUrl, setImmichBaseUrl] = useState('');
+  const [immichApiKey, setImmichApiKey] = useState('');
+  const [immichAlbumId, setImmichAlbumId] = useState('');
+  const [immichAlbumName, setImmichAlbumName] = useState('wardrowbe');
+  const [immichTestAlbums, setImmichTestAlbums] = useState<ImmichAlbum[]>([]);
 
   // Location and timezone state
   const [locationName, setLocationName] = useState('');
@@ -218,7 +229,7 @@ export default function SettingsPage() {
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser');
+      toast.error('当前浏览器不支持定位。');
       return;
     }
 
@@ -254,11 +265,11 @@ export default function SettingsPage() {
         }
 
         setIsGettingLocation(false);
-        toast.success('Location detected');
+        toast.success('已获取当前位置');
       },
       (error) => {
         setIsGettingLocation(false);
-        toast.error(`Failed to get location: ${error.message}`);
+        toast.error(`获取位置失败：${error.message}`);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -269,17 +280,17 @@ export default function SettingsPage() {
     const lon = parseFloat(locationLon);
 
     if (isNaN(lat) || isNaN(lon)) {
-      toast.error('Please enter valid latitude and longitude values');
+      toast.error('请输入有效的经纬度。');
       return;
     }
 
     if (lat < -90 || lat > 90) {
-      toast.error('Latitude must be between -90 and 90');
+      toast.error('纬度必须在 -90 到 90 之间。');
       return;
     }
 
     if (lon < -180 || lon > 180) {
-      toast.error('Longitude must be between -180 and 180');
+      toast.error('经度必须在 -180 到 180 之间。');
       return;
     }
 
@@ -290,9 +301,9 @@ export default function SettingsPage() {
         location_name: locationName || undefined,
         timezone: timezone,
       });
-      toast.success('Location and timezone saved');
+      toast.success('位置和时区已保存');
     } catch {
-      toast.error('Failed to save location');
+      toast.error('保存位置失败');
     }
   };
 
@@ -313,7 +324,7 @@ export default function SettingsPage() {
 
     const origPush = history.pushState.bind(history);
     history.pushState = function (...args) {
-      if (window.confirm('You have unsaved changes. Leave this page?')) {
+      if (window.confirm('你有未保存的更改，确定离开此页面吗？')) {
         origPush(...args);
       }
     };
@@ -359,7 +370,7 @@ export default function SettingsPage() {
       if (numericKeys.includes(key)) {
         const num = parseFloat(trimmed);
         if (isNaN(num) || num <= 0) {
-          toast.error(`${key.charAt(0).toUpperCase() + key.slice(1)} must be a positive number`);
+          toast.error(`${MEASUREMENT_ZH[key] || key} 必须是正数`);
           return;
         }
         parsed[key] = convertMeasurement(num, key, unitSystem, 'metric');
@@ -372,9 +383,9 @@ export default function SettingsPage() {
         body_measurements: Object.keys(parsed).length > 0 ? parsed : null,
       });
       setMeasurementsDirty(false);
-      toast.success('Measurements saved');
+      toast.success('身体数据已保存');
     } catch (e) {
-      toast.error(getErrorMessage(e, 'Failed to save measurements'));
+      toast.error(getErrorMessage(e, '保存身体数据失败'));
     }
   };
 
@@ -395,8 +406,63 @@ export default function SettingsPage() {
     } catch (error) {
       setEndpointTests((prev) => ({
         ...prev,
-        [index]: { status: 'error', error: 'Failed to test endpoint' },
+        [index]: { status: 'error', error: '测试端点失败' },
       }));
+    }
+  };
+
+  useEffect(() => {
+    if (immichConnection?.configured) {
+      setImmichBaseUrl(immichConnection.base_url || '');
+      setImmichAlbumId(immichConnection.album_id || '');
+      setImmichAlbumName(immichConnection.album_name || 'wardrowbe');
+    }
+  }, [immichConnection]);
+
+  const availableImmichAlbums = immichTestAlbums.length > 0 ? immichTestAlbums : (immichAlbums || []);
+
+  const handleTestImmich = async () => {
+    if (!immichBaseUrl || !immichApiKey) {
+      toast.error('请先填写 Immich URL 和 API key');
+      return;
+    }
+    try {
+      const result = await testImmich.mutateAsync({
+        base_url: immichBaseUrl,
+        api_key: immichApiKey,
+      });
+      const albums = result.albums || [];
+      setImmichTestAlbums(albums);
+      const wardrowbeAlbum = albums.find((album) => album.album_name.toLowerCase() === 'wardrowbe');
+      if (!immichAlbumId && wardrowbeAlbum) {
+        setImmichAlbumId(wardrowbeAlbum.id);
+        setImmichAlbumName(wardrowbeAlbum.album_name);
+      }
+      toast.success(`已连接 Immich，找到 ${albums.length} 个相册。`);
+    } catch (e) {
+      toast.error(getErrorMessage(e, '连接 Immich 失败'));
+    }
+  };
+
+  const handleSaveImmich = async () => {
+    if (!immichBaseUrl || !immichAlbumId) {
+      toast.error('请先选择 Immich 服务和相册');
+      return;
+    }
+    try {
+      const selectedAlbum = availableImmichAlbums.find((album) => album.id === immichAlbumId);
+      await saveImmich.mutateAsync({
+        base_url: immichBaseUrl,
+        api_key: immichApiKey || undefined,
+        album_id: immichAlbumId,
+        album_name: selectedAlbum?.album_name || immichAlbumName || 'wardrowbe',
+      });
+      setImmichApiKey('');
+      setImmichTestAlbums([]);
+      await refetchImmichAlbums();
+      toast.success('Immich 绑定已保存');
+    } catch (e) {
+      toast.error(getErrorMessage(e, '保存 Immich 绑定失败'));
     }
   };
 
@@ -451,7 +517,7 @@ export default function SettingsPage() {
   };
 
   const handleReset = async () => {
-    if (confirm('Reset all preferences to defaults?')) {
+    if (confirm('将所有偏好重置为默认值？')) {
       try {
         await resetPreferences.mutateAsync();
       } catch (error) {
@@ -472,15 +538,15 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <h1 className="text-2xl font-bold tracking-tight">设置</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your preferences and account settings
+            管理偏好、账号和外部服务
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleReset} disabled={resetPreferences.isPending}>
             <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
+            重置
           </Button>
           <Button size="sm" onClick={handleSave} disabled={!hasChanges || updatePreferences.isPending}>
             {updatePreferences.isPending ? (
@@ -488,7 +554,7 @@ export default function SettingsPage() {
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Save
+            保存
           </Button>
         </div>
       </div>
@@ -497,19 +563,116 @@ export default function SettingsPage() {
         {/* Account Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>Your profile information</CardDescription>
+            <CardTitle>账号</CardTitle>
+            <CardDescription>你的个人资料</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>姓名</Label>
                 <Input value={userProfile?.display_name || ''} disabled />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>邮箱</Label>
                 <Input value={userProfile?.email || ''} disabled />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Immich Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cloud className="h-5 w-5" />
+              Immich
+            </CardTitle>
+            <CardDescription>
+              从指定 Immich 相册导入衣橱照片，不在 Wardrowbe 中长期保存图片副本
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {immichConnection?.configured && immichConnection.status === 'error' && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">Immich 需要重新连接</p>
+                  <p>{immichConnection.last_error || '请重新绑定 Immich 账号。'}</p>
+                </div>
+              </div>
+            )}
+            {immichConnection?.configured && immichConnection.status === 'connected' && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  已连接
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  相册：{immichConnection.album_name || 'wardrowbe'}
+                </span>
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Immich URL</Label>
+                <Input
+                  value={immichBaseUrl}
+                  onChange={(e) => setImmichBaseUrl(e.target.value)}
+                  placeholder="http://host.docker.internal:2283"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>API Key</Label>
+                <Input
+                  type="password"
+                  value={immichApiKey}
+                  onChange={(e) => setImmichApiKey(e.target.value)}
+                  placeholder={immichConnection?.configured ? '留空则保留当前 key' : 'Immich API key'}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="space-y-2 flex-1">
+                <Label>相册</Label>
+                <Select
+                  value={immichAlbumId}
+                  onValueChange={(value) => {
+                    const album = availableImmichAlbums.find((a) => a.id === value);
+                    setImmichAlbumId(value);
+                    setImmichAlbumName(album?.album_name || 'wardrowbe');
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="先测试连接，再选择 wardrowbe 相册" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableImmichAlbums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>
+                        {album.album_name} ({album.asset_count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleTestImmich}
+                disabled={testImmich.isPending}
+              >
+                {testImmich.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                测试
+              </Button>
+              <Button onClick={handleSaveImmich} disabled={saveImmich.isPending}>
+                {saveImmich.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                保存 Immich
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -519,65 +682,65 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Location
+              位置
             </CardTitle>
             <CardDescription>
-              Set your location for weather-based outfit recommendations
+              设置位置，用于基于天气生成穿搭建议
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>City / Location Name (optional)</Label>
+              <Label>城市 / 位置名称（可选）</Label>
               <Input
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g., London, UK"
+                placeholder="例如：上海，中国"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Latitude</Label>
+                <Label>纬度</Label>
                 <Input
                   type="number"
                   step="0.000001"
                   value={locationLat}
                   onChange={(e) => setLocationLat(e.target.value)}
-                  placeholder="e.g., 51.5074"
+                  placeholder="例如：31.2304"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Longitude</Label>
+                <Label>经度</Label>
                 <Input
                   type="number"
                   step="0.000001"
                   value={locationLon}
                   onChange={(e) => setLocationLon(e.target.value)}
-                  placeholder="e.g., -0.1278"
+                  placeholder="例如：121.4737"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Timezone</Label>
+              <Label>时区</Label>
               <Select value={timezone} onValueChange={setTimezone}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
+                  <SelectValue placeholder="选择时区" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="America/New_York">Eastern Time (US)</SelectItem>
-                  <SelectItem value="America/Chicago">Central Time (US)</SelectItem>
-                  <SelectItem value="America/Denver">Mountain Time (US)</SelectItem>
-                  <SelectItem value="America/Los_Angeles">Pacific Time (US)</SelectItem>
-                  <SelectItem value="Europe/London">London (UK)</SelectItem>
-                  <SelectItem value="Europe/Paris">Paris (EU Central)</SelectItem>
-                  <SelectItem value="Europe/Berlin">Berlin (EU Central)</SelectItem>
-                  <SelectItem value="Asia/Tokyo">Tokyo (Japan)</SelectItem>
-                  <SelectItem value="Asia/Shanghai">Shanghai (China)</SelectItem>
-                  <SelectItem value="Asia/Kolkata">India (IST)</SelectItem>
-                  <SelectItem value="Asia/Kathmandu">Nepal (NPT)</SelectItem>
-                  <SelectItem value="Asia/Dubai">Dubai (UAE)</SelectItem>
-                  <SelectItem value="Australia/Sydney">Sydney (Australia)</SelectItem>
-                  <SelectItem value="Pacific/Auckland">Auckland (NZ)</SelectItem>
+                  <SelectItem value="America/New_York">美东时间（美国）</SelectItem>
+                  <SelectItem value="America/Chicago">美中时间（美国）</SelectItem>
+                  <SelectItem value="America/Denver">山地时间（美国）</SelectItem>
+                  <SelectItem value="America/Los_Angeles">太平洋时间（美国）</SelectItem>
+                  <SelectItem value="Europe/London">伦敦（英国）</SelectItem>
+                  <SelectItem value="Europe/Paris">巴黎（中欧）</SelectItem>
+                  <SelectItem value="Europe/Berlin">柏林（中欧）</SelectItem>
+                  <SelectItem value="Asia/Tokyo">东京（日本）</SelectItem>
+                  <SelectItem value="Asia/Shanghai">上海（中国）</SelectItem>
+                  <SelectItem value="Asia/Kolkata">印度（IST）</SelectItem>
+                  <SelectItem value="Asia/Kathmandu">尼泊尔（NPT）</SelectItem>
+                  <SelectItem value="Asia/Dubai">迪拜（阿联酋）</SelectItem>
+                  <SelectItem value="Australia/Sydney">悉尼（澳大利亚）</SelectItem>
+                  <SelectItem value="Pacific/Auckland">奥克兰（新西兰）</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -592,7 +755,7 @@ export default function SettingsPage() {
                 ) : (
                   <Navigation className="h-4 w-4 mr-2" />
                 )}
-                Use My Location
+                使用当前位置
               </Button>
               <Button
                 onClick={handleSaveLocation}
@@ -603,12 +766,12 @@ export default function SettingsPage() {
                 ) : (
                   <Save className="h-4 w-4 mr-2" />
                 )}
-                Save Location
+                保存位置
               </Button>
             </div>
             {!locationLat && !locationLon && (
               <p className="text-sm text-amber-600 dark:text-amber-400">
-                Location is required for weather-based outfit recommendations.
+                基于天气的穿搭建议需要位置信息。
               </p>
             )}
           </CardContent>
@@ -619,27 +782,27 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Ruler className="h-5 w-5" />
-              Body Measurements
+              身体数据
             </CardTitle>
-            <CardDescription>Help AI recommend better-fitting outfits</CardDescription>
+            <CardDescription>帮助 AI 推荐更合身的穿搭</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <Label>Unit System</Label>
+              <Label>单位制</Label>
               <Button variant="outline" size="sm" onClick={handleToggleUnits}>
-                {unitSystem === 'metric' ? 'Metric (cm/kg)' : 'Imperial (in/lbs)'}
+                {unitSystem === 'metric' ? '公制（cm/kg）' : '英制（in/lbs）'}
               </Button>
             </div>
 
             <div>
-              <Label className="text-muted-foreground mb-3 block">Body</Label>
+              <Label className="text-muted-foreground mb-3 block">身体</Label>
               <div className="grid gap-3 sm:grid-cols-2">
                 {BODY_MEASUREMENT_FIELDS.map((field) => {
                   const unit = unitSystem === 'metric' ? field.unitMetric : field.unitImperial;
                   const placeholder = unitSystem === 'metric' ? field.placeholderMetric : field.placeholderImperial;
                   return (
                     <div key={field.key} className="space-y-1">
-                      <Label className="text-sm capitalize">{field.key}</Label>
+                      <Label className="text-sm">{MEASUREMENT_ZH[field.key] || field.key}</Label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -659,7 +822,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <Label className="text-muted-foreground mb-3 block">Sizes</Label>
+              <Label className="text-muted-foreground mb-3 block">尺码</Label>
               <div className="grid gap-3 sm:grid-cols-2">
                 {SIZE_FIELDS.map((field) => (
                   <div key={field.key} className="space-y-1">
@@ -681,9 +844,9 @@ export default function SettingsPage() {
                 size="sm"
               >
                 {updateUserProfile.isPending ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />正在保存...</>
                 ) : (
-                  <><Save className="mr-2 h-4 w-4" />Save Measurements</>
+                  <><Save className="mr-2 h-4 w-4" />保存身体数据</>
                 )}
               </Button>
             )}
@@ -693,19 +856,19 @@ export default function SettingsPage() {
         {/* Color Preferences */}
         <Card>
           <CardHeader>
-            <CardTitle>Color Preferences</CardTitle>
+            <CardTitle>颜色偏好</CardTitle>
             <CardDescription>
-              Select colors you love and colors to avoid in recommendations
+              选择喜欢的颜色，以及推荐中尽量避开的颜色
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <ColorPicker
-              label="Favorite Colors"
+              label="喜欢的颜色"
               selected={formData.color_favorites || []}
               onChange={(colors) => updateField('color_favorites', colors)}
             />
             <ColorPicker
-              label="Colors to Avoid"
+              label="避免的颜色"
               selected={formData.color_avoid || []}
               onChange={(colors) => updateField('color_avoid', colors)}
             />
@@ -715,34 +878,34 @@ export default function SettingsPage() {
         {/* Style Profile */}
         <Card>
           <CardHeader>
-            <CardTitle>Style Profile</CardTitle>
+            <CardTitle>风格偏好</CardTitle>
             <CardDescription>
-              Adjust how much you prefer each style in outfit recommendations
+              调整各类风格在穿搭推荐中的偏好程度
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <StyleSlider
-              label="Casual"
+              label={STYLE_ZH.casual}
               value={formData.style_profile?.casual ?? 50}
               onChange={(v) => updateStyleProfile('casual', v)}
             />
             <StyleSlider
-              label="Formal"
+              label={STYLE_ZH.formal}
               value={formData.style_profile?.formal ?? 50}
               onChange={(v) => updateStyleProfile('formal', v)}
             />
             <StyleSlider
-              label="Sporty"
+              label={STYLE_ZH.sporty}
               value={formData.style_profile?.sporty ?? 50}
               onChange={(v) => updateStyleProfile('sporty', v)}
             />
             <StyleSlider
-              label="Minimalist"
+              label={STYLE_ZH.minimalist}
               value={formData.style_profile?.minimalist ?? 50}
               onChange={(v) => updateStyleProfile('minimalist', v)}
             />
             <StyleSlider
-              label="Bold"
+              label={STYLE_ZH.bold}
               value={formData.style_profile?.bold ?? 50}
               onChange={(v) => updateStyleProfile('bold', v)}
             />
@@ -752,15 +915,15 @@ export default function SettingsPage() {
         {/* Temperature & Comfort */}
         <Card>
           <CardHeader>
-            <CardTitle>Temperature & Comfort</CardTitle>
+            <CardTitle>温度与舒适度</CardTitle>
             <CardDescription>
-              Adjust how recommendations adapt to weather
+              调整推荐如何适配天气
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Temperature Unit</Label>
+                <Label>温度单位</Label>
                 <Select
                   value={formData.temperature_unit || 'celsius'}
                   onValueChange={(v) =>
@@ -771,13 +934,13 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="celsius">Celsius (°C)</SelectItem>
-                    <SelectItem value="fahrenheit">Fahrenheit (°F)</SelectItem>
+                    <SelectItem value="celsius">摄氏度（°C）</SelectItem>
+                    <SelectItem value="fahrenheit">华氏度（°F）</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Temperature Sensitivity</Label>
+                <Label>温度敏感度</Label>
                 <Select
                   value={formData.temperature_sensitivity || 'normal'}
                   onValueChange={(v) =>
@@ -788,16 +951,16 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">I feel warm easily</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">I feel cold easily</SelectItem>
+                    <SelectItem value="low">容易觉得热</SelectItem>
+                    <SelectItem value="normal">正常</SelectItem>
+                    <SelectItem value="high">容易觉得冷</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Layering Preference</Label>
+                <Label>叠穿偏好</Label>
                 <Select
                   value={formData.layering_preference || 'moderate'}
                   onValueChange={(v) =>
@@ -808,9 +971,9 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="minimal">Minimal layers</SelectItem>
-                    <SelectItem value="moderate">Moderate layers</SelectItem>
-                    <SelectItem value="heavy">Heavy layers</SelectItem>
+                    <SelectItem value="minimal">少量叠穿</SelectItem>
+                    <SelectItem value="moderate">适中叠穿</SelectItem>
+                    <SelectItem value="heavy">更多叠穿</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -824,7 +987,7 @@ export default function SettingsPage() {
                 return (
                   <>
                     <div className="space-y-2">
-                      <Label>Cold Threshold ({isFahrenheit ? '°F' : '°C'})</Label>
+                      <Label>偏冷阈值（{isFahrenheit ? '°F' : '°C'}）</Label>
                       <Input
                         type="number"
                         value={isFahrenheit ? Math.round(toF(coldC)) : coldC}
@@ -837,7 +1000,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Hot Threshold ({isFahrenheit ? '°F' : '°C'})</Label>
+                      <Label>偏热阈值（{isFahrenheit ? '°F' : '°C'}）</Label>
                       <Input
                         type="number"
                         value={isFahrenheit ? Math.round(toF(hotC)) : hotC}
@@ -859,15 +1022,15 @@ export default function SettingsPage() {
         {/* Recommendation Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>Recommendation Settings</CardTitle>
+            <CardTitle>推荐设置</CardTitle>
             <CardDescription>
-              Customize how outfit recommendations are generated
+              自定义穿搭推荐的生成方式
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Default Occasion</Label>
+                <Label>默认场合</Label>
                 <Select
                   value={formData.default_occasion || 'casual'}
                   onValueChange={(v) => updateField('default_occasion', v)}
@@ -878,14 +1041,14 @@ export default function SettingsPage() {
                   <SelectContent>
                     {OCCASIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
-                        {o.label}
+                        {OCCASION_ZH[o.value] || o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Variety Level</Label>
+                <Label>变化程度</Label>
                 <Select
                   value={formData.variety_level || 'moderate'}
                   onValueChange={(v) =>
@@ -896,16 +1059,16 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low (stick to favorites)</SelectItem>
-                    <SelectItem value="moderate">Moderate</SelectItem>
-                    <SelectItem value="high">High (try new combinations)</SelectItem>
+                    <SelectItem value="low">低（偏向常用搭配）</SelectItem>
+                    <SelectItem value="moderate">适中</SelectItem>
+                    <SelectItem value="high">高（尝试新组合）</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Avoid Repeat Items Within (days)</Label>
+                <Label>避免重复使用的天数</Label>
                 <Input
                   type="number"
                   value={formData.avoid_repeat_days ?? 7}
@@ -915,7 +1078,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Prefer Underused Items</Label>
+                <Label>优先使用低频衣物</Label>
                 <Select
                   value={formData.prefer_underused_items ? 'yes' : 'no'}
                   onValueChange={(v) => updateField('prefer_underused_items', v === 'yes')}
@@ -924,8 +1087,8 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="yes">是</SelectItem>
+                    <SelectItem value="no">否</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -938,16 +1101,16 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Server className="h-5 w-5" />
-              AI Endpoints
+              AI 端点
             </CardTitle>
             <CardDescription>
-              Configure AI endpoints for image analysis. Endpoints are tried in order from top to bottom.
+              配置用于图片分析的 AI 端点，会按从上到下的顺序尝试。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {(formData.ai_endpoints || []).length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No custom endpoints configured. Using default server settings.
+                未配置自定义端点，将使用服务器默认设置。
               </p>
             ) : (
               <div className="space-y-3">
@@ -991,7 +1154,7 @@ export default function SettingsPage() {
                             </Button>
                           </div>
                           <span className="font-medium text-sm truncate">
-                            {endpoint.name || `Endpoint ${index + 1}`}
+                            {endpoint.name || `端点 ${index + 1}`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -1024,16 +1187,16 @@ export default function SettingsPage() {
                       {/* Status badges and test button */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant={endpoint.enabled ? 'default' : 'secondary'} className="text-xs">
-                          {endpoint.enabled ? 'Active' : 'Disabled'}
+                          {endpoint.enabled ? '启用' : '停用'}
                         </Badge>
                         {endpointTests[index]?.status === 'connected' && (
                           <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                            Connected
+                            已连接
                           </Badge>
                         )}
                         {endpointTests[index]?.status === 'error' && (
                           <Badge variant="outline" className="text-xs text-red-600 border-red-600">
-                            Error
+                            错误
                           </Badge>
                         )}
                         <Button
@@ -1046,7 +1209,7 @@ export default function SettingsPage() {
                           {endpointTests[index]?.status === 'testing' ? (
                             <Loader2 className="h-3 w-3 animate-spin mr-1" />
                           ) : null}
-                          Test Connection
+                          测试连接
                         </Button>
                       </div>
                     </div>
@@ -1054,17 +1217,17 @@ export default function SettingsPage() {
                     {endpointTests[index]?.status === 'connected' && endpointTests[index]?.models && (
                       <div className="text-xs space-y-1 p-2 bg-green-50 dark:bg-green-950 rounded overflow-hidden">
                         <p className="font-medium text-green-700 dark:text-green-300">
-                          {endpointTests[index].models?.length} models available
+                          可用模型：{endpointTests[index].models?.length} 个
                         </p>
                         {endpointTests[index].visionModels && endpointTests[index].visionModels!.length > 0 && (
                           <p className="text-green-600 dark:text-green-400 truncate" title={endpointTests[index].visionModels?.join(', ')}>
-                            Vision: {endpointTests[index].visionModels?.slice(0, 3).join(', ')}
+                            视觉：{endpointTests[index].visionModels?.slice(0, 3).join(', ')}
                             {(endpointTests[index].visionModels?.length || 0) > 3 && '...'}
                           </p>
                         )}
                         {endpointTests[index].textModels && endpointTests[index].textModels!.length > 0 && (
                           <p className="text-green-600 dark:text-green-400 truncate" title={endpointTests[index].textModels?.join(', ')}>
-                            Text: {endpointTests[index].textModels?.slice(0, 3).join(', ')}
+                            文本：{endpointTests[index].textModels?.slice(0, 3).join(', ')}
                             {(endpointTests[index].textModels?.length || 0) > 3 && '...'}
                           </p>
                         )}
@@ -1077,7 +1240,7 @@ export default function SettingsPage() {
                     )}
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Name</Label>
+                        <Label className="text-xs">名称</Label>
                         <Input
                           value={endpoint.name}
                           onChange={(e) => {
@@ -1085,7 +1248,7 @@ export default function SettingsPage() {
                             updated[index] = { ...updated[index], name: e.target.value };
                             updateField('ai_endpoints', updated);
                           }}
-                          placeholder="e.g., Local Ollama"
+                          placeholder="例如：本地 Ollama"
                           className="h-8"
                         />
                       </div>
@@ -1103,7 +1266,7 @@ export default function SettingsPage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Vision Model</Label>
+                        <Label className="text-xs">视觉模型</Label>
                         <Input
                           value={endpoint.vision_model}
                           onChange={(e) => {
@@ -1116,7 +1279,7 @@ export default function SettingsPage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Text Model</Label>
+                        <Label className="text-xs">文本模型</Label>
                         <Input
                           value={endpoint.text_model}
                           onChange={(e) => {
@@ -1139,7 +1302,7 @@ export default function SettingsPage() {
                 className="flex-1"
                 onClick={() => {
                   const newEndpoint: AIEndpoint = {
-                    name: `Endpoint ${(formData.ai_endpoints || []).length + 1}`,
+                    name: `端点 ${(formData.ai_endpoints || []).length + 1}`,
                     url: 'http://localhost:11434/v1',
                     vision_model: 'moondream',
                     text_model: 'phi3:mini',
@@ -1149,7 +1312,7 @@ export default function SettingsPage() {
                 }}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Endpoint
+                添加端点
               </Button>
               {hasChanges && (
                 <Button onClick={handleSave} disabled={updatePreferences.isPending}>
@@ -1158,7 +1321,7 @@ export default function SettingsPage() {
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
                   )}
-                  Save
+                  保存
                 </Button>
               )}
             </div>

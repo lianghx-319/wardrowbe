@@ -14,6 +14,7 @@ import { type Outfit } from '@/lib/hooks/use-outfits';
 import { useFamily } from '@/lib/hooks/use-family';
 import { useRotateImage } from '@/lib/hooks/use-items';
 import { FamilyRatingForm, FamilyRatingsDisplay } from '@/components/family-ratings';
+import { COLOR_ZH, OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -53,9 +54,9 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
     try {
       await rotateImage.mutateAsync({ id: currentItem.id, direction });
       setImageKey((k) => k + 1); // Force image reload
-      toast.success('Image rotated');
+      toast.success('图片已旋转');
     } catch {
-      toast.error('Failed to rotate image');
+      toast.error('旋转图片失败');
     }
   };
 
@@ -67,12 +68,12 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
         {/* Header - sticky */}
         <div className="flex items-center justify-between p-4 pb-2 border-b flex-shrink-0">
           <div>
-            <h2 className="text-lg font-semibold capitalize">{outfit.occasion} Outfit</h2>
+            <h2 className="text-lg font-semibold">{OCCASION_ZH[outfit.occasion] || outfit.occasion}穿搭</h2>
             <div className="flex items-center gap-2 mt-0.5">
               {outfit.scheduled_for && (
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <CalendarDays className="h-3 w-3" />
-                  {new Date(outfit.scheduled_for + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {new Date(outfit.scheduled_for + 'T00:00:00').toLocaleDateString('zh-CN', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
               )}
               <span className="text-xs text-muted-foreground">
@@ -104,7 +105,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    No image
+                    暂无图片
                   </div>
                 )}
               </div>
@@ -138,7 +139,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="capitalize">
-                  {currentItem.type}
+                  {TYPE_ZH[currentItem.type] || currentItem.type}
                 </Badge>
                 {currentItem.subtype && (
                   <Badge variant="outline" className="capitalize">
@@ -154,7 +155,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                       backgroundColor: `${currentItem.primary_color}20`,
                     }}
                   >
-                    {currentItem.primary_color}
+                  {COLOR_ZH[currentItem.primary_color] || currentItem.primary_color}
                   </Badge>
                 )}
               </div>
@@ -165,7 +166,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                   size="icon"
                   onClick={() => handleRotate('ccw')}
                   disabled={rotateImage.isPending}
-                  title="Rotate left"
+                  title="向左旋转"
                   className="h-8 w-8"
                 >
                   {rotateImage.isPending ? (
@@ -179,7 +180,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                   size="icon"
                   onClick={() => handleRotate('cw')}
                   disabled={rotateImage.isPending}
-                  title="Rotate right"
+                  title="向右旋转"
                   className="h-8 w-8"
                 >
                   {rotateImage.isPending ? (
@@ -196,7 +197,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 mt-1" asChild>
               <Link href={`/dashboard/wardrobe?item=${currentItem.id}`}>
                 <ExternalLink className="h-3 w-3" />
-                View item details
+                查看衣物详情
               </Link>
             </Button>
           </div>
@@ -254,7 +255,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
               {outfit.style_notes && (
                 <div className="p-3 bg-muted rounded-lg border">
                   <p className="text-sm text-muted-foreground break-words">
-                    <span className="font-medium text-foreground">Tip:</span> {outfit.style_notes}
+                    <span className="font-medium text-foreground">提示：</span> {outfit.style_notes}
                   </p>
                 </div>
               )}
@@ -267,11 +268,11 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  Family Ratings
+                  家庭评分
                   {outfit.family_rating_count != null && outfit.family_rating_count > 0 && (
                     <span className="text-muted-foreground font-normal">
-                      ({outfit.family_rating_average?.toFixed(1)}{' '}
-                      <Star className="h-3 w-3 inline fill-yellow-400 text-yellow-400" /> avg)
+                      （平均 {outfit.family_rating_average?.toFixed(1)}{' '}
+                      <Star className="h-3 w-3 inline fill-yellow-400 text-yellow-400" />）
                     </span>
                   )}
                 </h3>
@@ -283,7 +284,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                     className="h-7 text-xs"
                   >
                     <Star className="h-3 w-3 mr-1" />
-                    Rate
+                    评分
                   </Button>
                 )}
               </div>
@@ -306,12 +307,12 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
 
               {(!outfit.family_ratings || outfit.family_ratings.length === 0) && !canRate && (
                 <p className="text-xs text-muted-foreground">
-                  No family ratings yet.
+                  暂无家庭评分。
                 </p>
               )}
               {(!outfit.family_ratings || outfit.family_ratings.length === 0) && canRate && !showRatingForm && !myRating && (
                 <p className="text-xs text-muted-foreground">
-                  No family ratings yet. Be the first to rate!
+                  暂无家庭评分，来第一个评分吧。
                 </p>
               )}
             </div>
@@ -321,7 +322,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
         {/* Close button at bottom - always visible */}
         <div className="border-t p-3 flex-shrink-0">
           <Button variant="outline" className="w-full" onClick={onClose}>
-            Close
+            关闭
           </Button>
         </div>
       </DialogContent>

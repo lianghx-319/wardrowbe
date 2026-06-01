@@ -6,18 +6,18 @@ import { Home, Shirt, Sparkles, LayoutGrid, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
-  { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Wardrobe', href: '/dashboard/wardrobe', icon: Shirt },
-  { name: 'Suggest', href: '/dashboard/suggest', icon: Sparkles },
-  { name: 'Outfits', href: '/dashboard/outfits', icon: LayoutGrid },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { name: '首页', href: '/dashboard', icon: Home },
+  { name: '衣橱', href: '/dashboard/wardrobe', icon: Shirt },
+  { name: '推荐', href: '/dashboard/suggest', icon: Sparkles },
+  { name: '穿搭', href: '/dashboard/outfits', icon: LayoutGrid },
+  { name: '设置', href: '/dashboard/settings', icon: Settings },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className="flex h-16 items-center justify-around">
         {navigation.map((item) => {
           const isActive = item.href === '/dashboard'
@@ -28,14 +28,14 @@ export function MobileNav() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex flex-col items-center gap-1 px-3 py-2 text-xs',
+                'flex min-w-0 flex-1 flex-col items-center gap-1 px-1 py-2 text-xs',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <item.icon className="h-5 w-5" aria-hidden="true" />
-              <span>{item.name}</span>
+              <span className="truncate">{item.name}</span>
             </Link>
           );
         })}

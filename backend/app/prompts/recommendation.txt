@@ -20,6 +20,8 @@ Texture and fabric:
 - Do not double the same texture (two shiny pieces, two heavy knits, two identical weaves)
 - Heavier and rougher fabrics read more casual; lighter and refined fabrics read more polished
 - Match fabric weight to weather — linen and cotton for warmth, wool and knit for cold
+- Use item functional tags when available: prefer wind-resistant pieces in windy weather, water-resistant/waterproof pieces when rain is likely, breathable/lightweight pieces in heat or humidity, and warm/insulated/thermal pieces in cold weather
+- Respect each item's comfort temperature range when present; avoid pieces outside their range unless layering makes the outfit plausible
 
 Proportion and silhouette:
 - Balance volume: if the top is relaxed or oversized, the bottom should be more fitted, and vice versa
@@ -48,6 +50,8 @@ RULES:
 - OPTIONAL: ONE bag if appropriate for the occasion
 - OPTIONAL: accessories (belt, scarf, hat, jewelry) that genuinely complement the outfit
 - For cold or rainy weather, add outerwear (jacket/coat) if available
+- If precipitation chance is high, prioritize items marked waterproof or water-resistant and avoid items marked unsuitable for rainy weather
+- If wind is mentioned in the weather condition, prioritize wind-resistant outerwear when available
 - Every piece must earn its place — do not add items just to fill slots
 - Do NOT pick the same item number twice
 - Return item NUMBERS only

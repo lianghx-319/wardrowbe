@@ -445,11 +445,9 @@ async def bulk_analyze_items(
     try:
         for item in items_to_process:
             try:
-                full_image_path = f"{settings.storage_path}/{item.image_path}"
                 await redis.enqueue_job(
-                    "tag_item_image",
+                    "tag_item_by_id",
                     str(item.id),
-                    full_image_path,
                     _queue_name="arq:tagging",
                 )
                 logger.info(f"Queued AI re-analysis for item {item.id}")
@@ -801,11 +799,9 @@ async def trigger_ai_analysis(
 
         redis = await create_pool(get_redis_settings())
         try:
-            full_image_path = f"{settings.storage_path}/{item.image_path}"
             job = await redis.enqueue_job(
-                "tag_item_image",
+                "tag_item_by_id",
                 str(item.id),
-                full_image_path,
                 _queue_name="arq:tagging",
             )
             logger.info(f"Queued AI re-analysis job for item {item.id}")

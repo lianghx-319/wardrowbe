@@ -18,6 +18,7 @@ import { useGeneratePairings } from '@/lib/hooks/use-pairings';
 import { Item, Pairing } from '@/lib/types';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { itemColorZh, itemTitleZh, itemTypeZh } from '@/lib/zh-labels';
 
 interface GeneratePairingsDialogProps {
   item: Item | null;
@@ -46,9 +47,9 @@ export function GeneratePairingsDialog({
         numPairings,
       });
       setGeneratedPairings(result.pairings);
-      toast.success(`Generated ${result.generated} outfit${result.generated !== 1 ? 's' : ''}!`);
+      toast.success(`已生成 ${result.generated} 套搭配`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to generate pairings';
+      const message = error instanceof Error ? error.message : '生成搭配失败';
       toast.error(message);
     }
   };
@@ -74,10 +75,10 @@ export function GeneratePairingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Find Matching Outfits
+            查找可搭配造型
           </DialogTitle>
           <DialogDescription>
-            AI will create complete outfits featuring this item
+            AI 会围绕这件衣物生成完整搭配
           </DialogDescription>
         </DialogHeader>
 
@@ -89,17 +90,17 @@ export function GeneratePairingsDialog({
               <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden relative border-2 border-primary/30">
                 <Image
                   src={imageUrl}
-                  alt={item.name || item.type}
+                  alt={itemTitleZh(item)}
                   fill
                   className="object-cover"
                   sizes="64px"
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{item.name || item.type}</p>
+                <p className="font-medium truncate">{itemTitleZh(item)}</p>
                 {item.primary_color && (
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {item.primary_color} {item.type}
+                  <p className="text-sm text-muted-foreground">
+                    {itemColorZh(item)} {itemTypeZh(item)}
                   </p>
                 )}
               </div>
@@ -108,7 +109,7 @@ export function GeneratePairingsDialog({
             {/* Number of pairings selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Number of outfits</Label>
+                <Label>搭配数量</Label>
                 <span className="text-sm font-medium text-primary">{numPairings}</span>
               </div>
               <Slider
@@ -120,7 +121,7 @@ export function GeneratePairingsDialog({
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                More outfits = more variety, but takes longer to generate
+                数量越多变化越丰富，但生成时间也会更长
               </p>
             </div>
           </div>
@@ -132,10 +133,10 @@ export function GeneratePairingsDialog({
             </div>
             <div>
               <p className="font-medium text-lg">
-                {generatedPairings.length} outfit{generatedPairings.length !== 1 ? 's' : ''} created!
+                已创建 {generatedPairings.length} 套搭配
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                View them in the Pairings section
+                可以在“搭配”页面查看它们
               </p>
             </div>
 
@@ -154,7 +155,7 @@ export function GeneratePairingsDialog({
                       {pairingItem.thumbnail_url ? (
                         <Image
                           src={pairingItem.thumbnail_url}
-                          alt={pairingItem.type}
+                          alt={itemTypeZh(pairingItem)}
                           fill
                           className="object-cover"
                           sizes="32px"
@@ -174,7 +175,7 @@ export function GeneratePairingsDialog({
           {!generatedPairings ? (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Cancel
+                取消
               </Button>
               <Button
                 onClick={handleGenerate}
@@ -183,12 +184,12 @@ export function GeneratePairingsDialog({
                 {generatePairings.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
+                    生成中...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generate Outfits
+                    生成搭配
                   </>
                 )}
               </Button>
@@ -196,10 +197,10 @@ export function GeneratePairingsDialog({
           ) : (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Close
+                关闭
               </Button>
               <Button onClick={handleViewPairings}>
-                View Pairings
+                查看搭配
               </Button>
             </>
           )}

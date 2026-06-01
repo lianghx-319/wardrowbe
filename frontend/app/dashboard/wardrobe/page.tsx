@@ -27,20 +27,22 @@ import { AddItemDialog } from '@/components/add-item-dialog';
 import { ItemDetailDialog } from '@/components/item-detail-dialog';
 import { BulkActionToolbar, BulkSelection } from '@/components/bulk-action-toolbar';
 import { useItems, useItem, useItemTypes, useReanalyzeItem, useBulkDeleteItems, useBulkReanalyzeItems, BulkOperationParams } from '@/lib/hooks/use-items';
+import { useImmichConnection, useScanImmich } from '@/lib/hooks/use-immich';
 import { useUserProfile } from '@/lib/hooks/use-user';
 import { CLOTHING_TYPES, CLOTHING_COLORS, Item } from '@/lib/types';
+import { TYPE_ZH, itemColorZh, itemTitleZh, itemTypeZh } from '@/lib/zh-labels';
 import { toast } from 'sonner';
 import { formatWornAgo, getWornAgoColorClass } from '@/lib/utils';
 
 const SORT_OPTIONS = [
-  { label: 'Newest first', value: 'created_at', order: 'desc' as const },
-  { label: 'Oldest first', value: 'created_at', order: 'asc' as const },
-  { label: 'Recently worn', value: 'last_worn', order: 'desc' as const },
-  { label: 'Least recently worn', value: 'last_worn', order: 'asc' as const },
-  { label: 'Most worn', value: 'wear_count', order: 'desc' as const },
-  { label: 'Least worn', value: 'wear_count', order: 'asc' as const },
-  { label: 'Name A–Z', value: 'name', order: 'asc' as const },
-  { label: 'Name Z–A', value: 'name', order: 'desc' as const },
+  { label: '最新添加', value: 'created_at', order: 'desc' as const },
+  { label: '最早添加', value: 'created_at', order: 'asc' as const },
+  { label: '最近穿过', value: 'last_worn', order: 'desc' as const },
+  { label: '最久未穿', value: 'last_worn', order: 'asc' as const },
+  { label: '穿着最多', value: 'wear_count', order: 'desc' as const },
+  { label: '穿着最少', value: 'wear_count', order: 'asc' as const },
+  { label: '名称 A-Z', value: 'name', order: 'asc' as const },
+  { label: '名称 Z-A', value: 'name', order: 'desc' as const },
 ] as const;
 
 function ItemCard({
@@ -59,8 +61,21 @@ function ItemCard({
   userTimezone: string;
 }) {
   const colorInfo = CLOTHING_COLORS.find((c) => c.value === item.primary_color);
+  const displayTitle = itemTitleZh(item);
+  const displayType = itemTypeZh(item);
+  const displayColor = itemColorZh(item);
   const isProcessing = item.status === 'processing';
   const isError = item.status === 'error';
+  const errorMessage = typeof item.ai_raw_response?.error === 'string'
+    ? item.ai_raw_response.error
+    : 'AI 分析失败';
+  const modelConfidence = item.tags?.logprobs_confidence;
+  const estimatedConfidence = Number(item.ai_confidence ?? 0);
+  const confidenceLabel = modelConfidence != null
+    ? `模型置信度 ${Math.round(modelConfidence * 100)}%`
+    : estimatedConfidence > 0 && item.status === 'ready'
+      ? `估算置信度 ${Math.round(estimatedConfidence * 100)}%`
+      : null;
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,14 +92,14 @@ function ItemCard({
         {item.thumbnail_url ? (
           <Image
             src={item.thumbnail_url}
-            alt={item.name || item.type}
+            alt={displayTitle}
             fill
             className="object-cover"
             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-            {item.type}
+            {displayType}
           </div>
         )}
         {/* Checkbox in top-left */}
@@ -107,7 +122,7 @@ function ItemCard({
         )}
         {item.needs_wash && (
           <div className="absolute bottom-2 right-2 z-10">
-            <div className="bg-amber-500/90 text-white rounded-full p-1" title="Needs washing">
+            <div className="bg-amber-500/90 text-white rounded-full p-1" title="需要清洗">
               <Droplets className="h-3.5 w-3.5" />
             </div>
           </div>
@@ -115,13 +130,15 @@ function ItemCard({
         {isProcessing && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
             <Loader2 className="h-6 w-6 text-white animate-spin" />
-            <span className="text-white text-xs font-medium">AI Analyzing...</span>
+            <span className="text-white text-xs font-medium">AI 分析中...</span>
           </div>
         )}
         {isError && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 p-2">
             <AlertCircle className="h-6 w-6 text-red-400" />
-            <span className="text-white text-xs font-medium text-center">Analysis Failed</span>
+            <span className="text-white text-xs font-medium text-center line-clamp-3">
+              {errorMessage}
+            </span>
             {onRetry && (
               <Button
                 size="sm"
@@ -133,7 +150,7 @@ function ItemCard({
                 }}
               >
                 <RefreshCw className="h-3 w-3 mr-1" />
-                Retry
+                重试
               </Button>
             )}
           </div>
@@ -143,12 +160,13 @@ function ItemCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="font-medium text-sm truncate">
-              {item.name || item.type}
+              {displayTitle}
             </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {item.type}
+            <p className="text-xs text-muted-foreground">
+              {displayType}
               {item.subtype && ` • ${item.subtype}`}
-              {item.tags?.logprobs_confidence != null && ` · ${Math.round(item.tags.logprobs_confidence * 100)}% confident`}
+              {displayColor && ` · ${displayColor}`}
+              {confidenceLabel && ` · ${confidenceLabel}`}
             </p>
           </div>
           {colorInfo && (
@@ -161,7 +179,7 @@ function ItemCard({
                   />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{colorInfo.name}</p>
+                  <p>{displayColor || colorInfo.name}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -176,9 +194,9 @@ function ItemCard({
             Worn {item.wear_count} time{item.wear_count !== 1 ? 's' : ''}
           </p>
         ) : null}
-        {item.ai_confidence !== undefined && item.ai_confidence > 0 && item.status === 'ready' && (
+        {estimatedConfidence > 0 && item.status === 'ready' && (
           <p className="text-xs text-muted-foreground mt-1">
-            AI completeness: {Math.round(item.ai_confidence * 100)}%
+            AI 标签完整度：{Math.round(estimatedConfidence * 100)}%
           </p>
         )}
       </CardContent>
@@ -204,14 +222,13 @@ function EmptyWardrobe({ onAddClick }: { onAddClick: () => void }) {
       <div className="rounded-full bg-muted p-6 mb-4">
         <Grid3X3 className="h-12 w-12 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">Your wardrobe is empty</h3>
+      <h3 className="text-lg font-semibold mb-2">衣橱还是空的</h3>
       <p className="text-muted-foreground mb-6 max-w-sm">
-        Add your first clothing item to start getting personalized outfit
-        suggestions.
+        添加第一件衣服后，就可以开始获得个性化穿搭建议。
       </p>
       <Button onClick={onAddClick}>
         <Plus className="mr-2 h-4 w-4" />
-        Add First Item
+        添加第一件
       </Button>
     </div>
   );
@@ -269,6 +286,8 @@ export default function WardrobePage() {
   const reanalyze = useReanalyzeItem();
   const bulkDelete = useBulkDeleteItems();
   const bulkReanalyze = useBulkReanalyzeItems();
+  const { data: immichConnection } = useImmichConnection();
+  const scanImmich = useScanImmich();
 
   const items = data?.items || [];
   const total = data?.total || 0;
@@ -356,13 +375,13 @@ export default function WardrobePage() {
     const params = getBulkParams();
     try {
       const result = await bulkDelete.mutateAsync(params);
-      toast.success(`Deleted ${result.deleted} items`);
+      toast.success(`已删除 ${result.deleted} 件衣物`);
       if (result.failed > 0) {
-        toast.error(`Failed to delete ${result.failed} items`);
+        toast.error(`${result.failed} 件衣物删除失败`);
       }
       handleClearSelection();
     } catch {
-      toast.error('Failed to delete items');
+      toast.error('删除衣物失败');
     }
   };
 
@@ -371,16 +390,16 @@ export default function WardrobePage() {
     try {
       const result = await bulkReanalyze.mutateAsync(params);
       if (result.queued > 20) {
-        toast.success(`Queued ${result.queued} items for re-analysis. This may take a while.`);
+        toast.success(`已将 ${result.queued} 件衣物加入重新分析队列，可能需要一些时间。`);
       } else {
-        toast.success(`Queued ${result.queued} items for re-analysis`);
+        toast.success(`已将 ${result.queued} 件衣物加入重新分析队列`);
       }
       if (result.failed > 0) {
-        toast.error(`Failed to queue ${result.failed} items`);
+        toast.error(`${result.failed} 件衣物加入队列失败`);
       }
       handleClearSelection();
     } catch {
-      toast.error('Failed to queue items for re-analysis');
+      toast.error('重新分析入队失败');
     }
   };
 
@@ -388,41 +407,102 @@ export default function WardrobePage() {
     setPage(newPage);
   };
 
+  const handleScanImmich = async () => {
+    try {
+      const result = await scanImmich.mutateAsync();
+      toast.success(
+        `Immich 扫描完成：导入 ${result.imported} 张，跳过 ${result.skipped_existing_asset + result.skipped_duplicate_hash} 张`
+      );
+      if (result.failed > 0) {
+        toast.error(`${result.failed} 张 Immich 照片导入失败`);
+      }
+    } catch {
+      toast.error('Immich 扫描失败，请在设置中重新绑定。');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center justify-between sm:justify-start gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">My Wardrobe</h1>
-            <Button onClick={() => setAddDialogOpen(true)} className="sm:hidden" size="sm">
-              <Plus className="h-4 w-4" />
-            </Button>
+            <h1 className="text-2xl font-bold tracking-tight">我的衣橱</h1>
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button
+                variant={immichConnection?.status === 'error' ? 'destructive' : 'outline'}
+                size="icon"
+                onClick={handleScanImmich}
+                disabled={!immichConnection?.configured || scanImmich.isPending}
+                title={immichConnection?.configured ? '扫描 Immich' : '请先在设置中绑定 Immich'}
+                aria-label={immichConnection?.configured ? '扫描 Immich' : '请先在设置中绑定 Immich'}
+              >
+                {scanImmich.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                onClick={() => setAddDialogOpen(true)}
+                size="icon"
+                title="添加衣物"
+                aria-label="添加衣物"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            {total} item{total !== 1 ? 's' : ''} in your wardrobe
+            衣橱中共有 {total} 件物品
           </p>
           {(processingCount > 0 || errorCount > 0) && (
             <div className="flex items-center gap-2 mt-2">
               {processingCount > 0 && (
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  {processingCount} analyzing
+                  {processingCount} 件分析中
                 </Badge>
               )}
               {errorCount > 0 && (
                 <Badge variant="destructive" className="gap-1 text-xs">
                   <AlertCircle className="h-3 w-3" />
-                  {errorCount} failed
+                  {errorCount} 件失败
                 </Badge>
               )}
             </div>
           )}
         </div>
-        <Button onClick={() => setAddDialogOpen(true)} className="hidden sm:flex">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Item
-        </Button>
+        <div className="hidden sm:flex gap-2">
+          {immichConnection?.configured && (
+            <Button
+              variant={immichConnection.status === 'error' ? 'destructive' : 'outline'}
+              onClick={handleScanImmich}
+              disabled={scanImmich.isPending}
+            >
+              {scanImmich.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              扫描 Immich
+            </Button>
+          )}
+          <Button onClick={() => setAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            添加衣物
+          </Button>
+        </div>
       </div>
+
+      {immichConnection?.configured && immichConnection.status === 'error' && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium">Immich 连接不可用</p>
+            <p>{immichConnection.last_error || '请先在设置中重新绑定 Immich。'}</p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {/* Main row: search + sort + filter toggle */}
@@ -430,7 +510,7 @@ export default function WardrobePage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search items..."
+              placeholder="搜索衣物、颜色、标签..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -439,7 +519,7 @@ export default function WardrobePage() {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex">
             <Select
               value={String(sortIndex)}
               onValueChange={(v) => {
@@ -477,7 +557,7 @@ export default function WardrobePage() {
 
         {/* Expandable filter row */}
         {showFilters && (
-          <div className="flex flex-wrap gap-2 items-center p-3 rounded-lg border bg-muted/30">
+          <div className="flex flex-wrap gap-2 items-center p-2 sm:p-3 rounded-lg border bg-muted/30">
             <Select
               value={typeFilter}
               onValueChange={(value) => {
@@ -485,14 +565,14 @@ export default function WardrobePage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[150px] h-8 text-xs">
-                <SelectValue placeholder="All types" />
+              <SelectTrigger className="w-full min-w-[140px] sm:w-[150px] h-8 text-xs">
+                <SelectValue placeholder="所有品类" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="all">所有品类</SelectItem>
                 {CLOTHING_TYPES.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                    {TYPE_ZH[t.value] || t.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -508,7 +588,7 @@ export default function WardrobePage() {
               }}
             >
               <Droplets className="h-3.5 w-3.5" />
-              Needs wash
+              待清洗
             </Button>
 
             <Button
@@ -521,14 +601,14 @@ export default function WardrobePage() {
               }}
             >
               <Heart className="h-3.5 w-3.5" />
-              Favorites
+              收藏
             </Button>
 
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs gap-1 ml-auto"
+                className="h-8 text-xs gap-1 sm:ml-auto"
                 onClick={() => {
                   setTypeFilter('all');
                   setNeedsWash(undefined);
@@ -537,7 +617,7 @@ export default function WardrobePage() {
                 }}
               >
                 <X className="h-3 w-3" />
-                Clear filters
+                清除筛选
               </Button>
             )}
           </div>
@@ -547,18 +627,18 @@ export default function WardrobePage() {
       {error ? (
         <div className="text-center py-8">
           <p className="text-destructive">
-            Failed to load items. Please try again.
+            加载衣物失败，请重试。
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => window.location.reload()}
           >
-            Retry
+            重试
           </Button>
         </div>
       ) : isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
           {Array.from({ length: 10 }).map((_, i) => (
             <ItemCardSkeleton key={i} />
           ))}
@@ -567,7 +647,7 @@ export default function WardrobePage() {
         search || typeFilter !== 'all' || needsWash !== undefined || favoriteFilter !== undefined ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">
-              No items found matching your filters.
+              没有找到符合筛选条件的衣物。
             </p>
             <Button
               variant="outline"
@@ -579,14 +659,14 @@ export default function WardrobePage() {
                 setFavoriteFilter(undefined);
               }}
             >
-              Clear Filters
+              清除筛选
             </Button>
           </div>
         ) : (
           <EmptyWardrobe onAddClick={() => setAddDialogOpen(true)} />
         )
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-20">
+        <div className="grid grid-cols-2 gap-3 pb-20 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => {
             // Determine if item is selected based on selection mode
             const isSelected = selection.mode === 'all'

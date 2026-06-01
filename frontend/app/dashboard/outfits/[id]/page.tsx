@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 import {
   BookmarkPlus,
   CalendarPlus,
@@ -26,6 +27,14 @@ import { CloneToLookbookDialog } from '@/components/shared/clone-to-lookbook-dia
 import { useDeleteOutfit, useOutfit, useOutfits } from '@/lib/hooks/use-outfits';
 import { useWearToday } from '@/lib/hooks/use-studio';
 import { getErrorMessage } from '@/lib/api';
+import { OCCASION_ZH, itemTitleZh } from '@/lib/zh-labels';
+
+const SOURCE_ZH: Record<string, string> = {
+  manual: '手动创建',
+  suggested: 'AI 建议',
+  ai_suggested: 'AI 建议',
+  lookbook: '灵感册',
+};
 
 export default function OutfitDetailPage() {
   const router = useRouter();
@@ -60,25 +69,25 @@ export default function OutfitDetailPage() {
   const handleWearToday = async () => {
     try {
       const result = await wearTodayMutation.mutateAsync({});
-      toast.success('Added to today');
+      toast.success('已加入今天穿着');
       router.push(`/dashboard/outfits/${result.id}`);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to wear today'));
+      toast.error(getErrorMessage(error, '记录今天穿着失败'));
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this outfit? This cannot be undone.')) return;
+    if (!confirm('确定删除这套穿搭吗？此操作无法撤销。')) return;
     try {
       await deleteMutation.mutateAsync(outfit.id);
-      toast.success('Outfit deleted');
+      toast.success('穿搭已删除');
       router.push('/dashboard/outfits');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete'));
+      toast.error(getErrorMessage(error, '删除失败'));
     }
   };
 
-  const title = outfit.name || `${outfit.occasion} outfit`;
+  const title = outfit.name || `${OCCASION_ZH[outfit.occasion] || outfit.occasion}穿搭`;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -86,26 +95,27 @@ export default function OutfitDetailPage() {
         <Button variant="ghost" size="sm" asChild>
           <Link href="/dashboard/outfits">
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Outfits
+            返回穿搭
           </Link>
         </Button>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight capitalize">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         <div className="flex items-center gap-2 mt-2">
-          <Badge variant="outline" className="capitalize">
-            {outfit.occasion}
+          <Badge variant="outline">
+            {OCCASION_ZH[outfit.occasion] || outfit.occasion}
           </Badge>
-          <Badge variant="outline" className="capitalize">
-            {outfit.source.replace('_', ' ')}
+          <Badge variant="outline">
+            {SOURCE_ZH[outfit.source] || outfit.source.replace('_', ' ')}
           </Badge>
           <span className="text-sm text-muted-foreground">
             {outfit.scheduled_for
               ? formatDistanceToNow(parseISO(outfit.scheduled_for), {
                   addSuffix: true,
+                  locale: zhCN,
                 })
-              : 'Lookbook template'}
+              : '灵感册模板'}
           </span>
         </div>
       </div>
@@ -115,7 +125,7 @@ export default function OutfitDetailPage() {
       <Card>
         <CardContent className="p-4">
           <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-            Items ({outfit.items.length})
+            衣物（{outfit.items.length}）
           </h2>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
             {outfit.items.map((item) => (
@@ -136,13 +146,13 @@ export default function OutfitDetailPage() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="text-xs text-muted-foreground">
-                        {item.type}
+                        {itemTitleZh(item)}
                       </span>
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 truncate">
-                  {item.name || item.type}
+                  {itemTitleZh(item)}
                 </p>
               </Link>
             ))}
@@ -158,20 +168,20 @@ export default function OutfitDetailPage() {
             ) : (
               <CalendarPlus className="h-4 w-4 mr-2" />
             )}
-            Wear today
+            今天穿
           </Button>
         )}
         {!isTemplate && (
           <Button variant="outline" onClick={() => setCloneDialogOpen(true)}>
             <BookmarkPlus className="h-4 w-4 mr-2" />
-            Save to lookbook
+            保存到灵感册
           </Button>
         )}
         {!isWorn && (
           <Button variant="outline" asChild>
             <Link href={`/dashboard/outfits/new?edit=${outfit.id}`}>
               <Pencil className="h-4 w-4 mr-2" />
-              Edit
+              编辑
             </Link>
           </Button>
         )}
@@ -182,7 +192,7 @@ export default function OutfitDetailPage() {
           disabled={deleteMutation.isPending}
         >
           <Trash2 className="h-4 w-4 mr-2" />
-          Delete
+          删除
         </Button>
       </div>
 
@@ -190,8 +200,7 @@ export default function OutfitDetailPage() {
         <Card>
           <CardContent className="p-4">
             <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-              Worn {wearInstancesData.total} time
-              {wearInstancesData.total === 1 ? '' : 's'}
+              已穿 {wearInstancesData.total} 次
             </h2>
             <div className="space-y-2">
               {wearInstancesData.outfits.map((wear) => (
@@ -202,8 +211,8 @@ export default function OutfitDetailPage() {
                 >
                   <span className="text-sm">
                     {wear.scheduled_for
-                      ? format(parseISO(wear.scheduled_for), 'MMM d, yyyy')
-                      : 'Undated'}
+                      ? format(parseISO(wear.scheduled_for), 'yyyy年M月d日', { locale: zhCN })
+                      : '未标日期'}
                   </span>
                   {wear.feedback?.rating && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -217,7 +226,7 @@ export default function OutfitDetailPage() {
             {wearInstancesData.has_more && (
               <Button variant="link" size="sm" asChild className="mt-2 px-0">
                 <Link href={`/dashboard/outfits?filter=worn&cloned_from=${outfit.id}`}>
-                  See all
+                  查看全部
                 </Link>
               </Button>
             )}
@@ -228,7 +237,7 @@ export default function OutfitDetailPage() {
       {isTemplate && wearInstancesData && wearInstancesData.total === 0 && (
         <Alert className="border-muted">
           <AlertDescription className="text-sm text-muted-foreground">
-            This look has not been worn yet. Click &quot;Wear today&quot; to log it.
+            这套穿搭还没有穿过。点击“今天穿”即可记录。
           </AlertDescription>
         </Alert>
       )}

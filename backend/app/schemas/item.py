@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.utils.signed_urls import sign_image_url
+from app.utils.signed_urls import sign_image_url, sign_immich_asset_url
 
 # Default wash intervals by clothing type (wears between washes)
 DEFAULT_WASH_INTERVALS: dict[str, int] = {
@@ -76,10 +76,14 @@ class ItemResponse(ItemBase):
 
     id: UUID
     user_id: UUID
-    image_path: str
+    image_path: str | None = None
     thumbnail_path: str | None = None
     medium_path: str | None = None
+    image_source: str = "local"
+    immich_asset_id: str | None = None
+    immich_original_filename: str | None = None
     tags: dict = Field(default_factory=dict)
+    tags_zh: dict | None = None
     colors: list[str] = Field(default_factory=list)
     primary_color: str | None = None
     pattern: str | None = None
@@ -90,7 +94,9 @@ class ItemResponse(ItemBase):
     status: str
     ai_processed: bool = False
     ai_confidence: Decimal | None = None
+    ai_raw_response: dict | None = None
     ai_description: str | None = None
+    ai_description_zh: str | None = None
     wear_count: int = 0
     last_worn_at: date | None = None
     last_suggested_at: date | None = None
@@ -109,12 +115,20 @@ class ItemResponse(ItemBase):
 
     @computed_field
     @property
-    def image_url(self) -> str:
+    def image_url(self) -> str | None:
+        if self.image_source == "immich":
+            # Browsers do not consistently render HEIC/HEIF originals from iPhones.
+            # Use Immich's preview for in-app display; the original remains in Immich.
+            return sign_immich_asset_url(str(self.id), "preview")
+        if not self.image_path:
+            return None
         return sign_image_url(self.image_path)
 
     @computed_field
     @property
     def thumbnail_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "thumbnail")
         if self.thumbnail_path:
             return sign_image_url(self.thumbnail_path)
         return None
@@ -122,6 +136,8 @@ class ItemResponse(ItemBase):
     @computed_field
     @property
     def medium_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
         if self.medium_path:
             return sign_image_url(self.medium_path)
         return None

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAcceptOutfit, useRejectOutfit, type Outfit, type OutfitSource, type WoreInsteadItem } from '@/lib/hooks/use-outfits';
+import { OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
 
 function StatusIcon({ status }: { status: Outfit['status'] }) {
@@ -44,9 +45,19 @@ function StatusBadge({ status }: { status: Outfit['status'] }) {
     expired: 'secondary',
   };
 
+  const labels: Record<string, string> = {
+    accepted: '已接受',
+    rejected: '已拒绝',
+    viewed: '已查看',
+    sent: '已发送',
+    pending: '待确认',
+    expired: '已过期',
+    skipped: '已跳过',
+  };
+
   return (
-    <Badge variant={variants[status] || 'outline'} className="capitalize">
-      {status}
+    <Badge variant={variants[status] || 'outline'}>
+      {labels[status] || status}
     </Badge>
   );
 }
@@ -55,22 +66,22 @@ function SourceBadge({ source }: { source: OutfitSource }) {
   const config: Record<OutfitSource, { icon: typeof Calendar; label: string; className: string }> = {
     scheduled: {
       icon: Calendar,
-      label: 'Scheduled',
+      label: '计划',
       className: 'bg-primary/10 text-primary border-primary/20',
     },
     on_demand: {
       icon: Zap,
-      label: 'On Demand',
+      label: '即时',
       className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
     },
     manual: {
       icon: Edit3,
-      label: 'Manual',
+      label: '手动',
       className: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
     },
     pairing: {
       icon: Zap,
-      label: 'Pairing',
+      label: '搭配',
       className: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
     },
   };
@@ -114,18 +125,18 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
   const handleAccept = async () => {
     try {
       await acceptOutfit.mutateAsync(outfit.id);
-      toast.success('Outfit accepted');
+      toast.success('已接受穿搭');
     } catch {
-      toast.error('Failed to accept outfit');
+      toast.error('接受穿搭失败');
     }
   };
 
   const handleReject = async () => {
     try {
       await rejectOutfit.mutateAsync(outfit.id);
-      toast.success('Outfit rejected');
+      toast.success('已拒绝穿搭');
     } catch {
-      toast.error('Failed to reject outfit');
+      toast.error('拒绝穿搭失败');
     }
   };
 
@@ -139,7 +150,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
           <SourceBadge source={outfit.source} />
           <div className="flex items-center gap-1.5">
             <Badge variant="secondary" className="capitalize text-xs">
-              {outfit.occasion}
+              {OCCASION_ZH[outfit.occasion] || outfit.occasion}
             </Badge>
             <StatusIcon status={outfit.status} />
           </div>
@@ -166,7 +177,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                  {item.type}
+                  {TYPE_ZH[item.type] || item.type}
                 </div>
               )}
             </div>
@@ -193,11 +204,11 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
         {outfit.feedback?.actually_worn === false && (
           <div className="mt-2 pt-2 border-t">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <span>Didn&apos;t wear this</span>
+              <span>没有穿这套</span>
               {outfit.feedback.wore_instead_items && outfit.feedback.wore_instead_items.length > 0 && (
                 <>
                   <ArrowRight className="h-3 w-3" />
-                  <span className="text-foreground font-medium">Wore instead:</span>
+                  <span className="text-foreground font-medium">实际穿了：</span>
                 </>
               )}
             </div>
@@ -236,7 +247,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
           <div className="mt-2 pt-2 border-t">
             <div className="flex items-center gap-2 text-xs">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Family:</span>
+              <span className="text-muted-foreground">家庭：</span>
               <StarRating rating={Math.round(outfit.family_rating_average ?? 0)} />
               <span className="text-muted-foreground">
                 ({outfit.family_rating_count})
@@ -264,7 +275,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
             {outfit.style_notes && (
               <div className="p-2 bg-muted rounded border">
                 <p className="text-muted-foreground">
-                  <span className="font-medium text-foreground">Tip:</span> {outfit.style_notes}
+                  <span className="font-medium text-foreground">提示：</span> {outfit.style_notes}
                 </p>
               </div>
             )}
@@ -283,7 +294,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
                 disabled={rejectOutfit.isPending}
               >
                 <ThumbsDown className="h-3 w-3 mr-1" />
-                Reject
+                拒绝
               </Button>
               <Button
                 size="sm"
@@ -292,7 +303,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
                 disabled={acceptOutfit.isPending}
               >
                 <ThumbsUp className="h-3 w-3 mr-1" />
-                Accept
+                接受
               </Button>
             </div>
           )}
@@ -305,7 +316,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
               onClick={onFeedback}
             >
               <Star className="h-3 w-3 mr-1" />
-              {outfit.feedback?.rating ? 'Update' : 'Rate'}
+              {outfit.feedback?.rating ? '更新评分' : '评分'}
             </Button>
           )}
         </div>
@@ -315,7 +326,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
       <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden [&>button]:hidden">
           <DialogHeader className="p-4 pb-2">
-            <DialogTitle>{previewItem?.name || previewItem?.type || 'Item'}</DialogTitle>
+            <DialogTitle>{previewItem?.name || (previewItem?.type ? TYPE_ZH[previewItem.type] : undefined) || '衣物'}</DialogTitle>
           </DialogHeader>
           <div className="relative bg-muted">
             <Link href={`/dashboard/wardrobe?item=${previewItem?.id}`} className="block">
@@ -338,12 +349,12 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
           </div>
           <div className="p-4 pt-2 space-y-3">
             <Badge variant="secondary" className="capitalize">
-              {previewItem?.type}
+              {previewItem?.type ? TYPE_ZH[previewItem.type] || previewItem.type : ''}
             </Badge>
             <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-1.5" asChild>
               <Link href={`/dashboard/wardrobe?item=${previewItem?.id}`}>
                 <ExternalLink className="h-3 w-3" />
-                View item details
+                查看衣物详情
               </Link>
             </Button>
           </div>

@@ -12,6 +12,7 @@ import { OccasionChips } from '@/components/shared/occasion-chips';
 import { api, getErrorMessage } from '@/lib/api';
 import { ITEM_ROLE } from '@/lib/studio/canonical-order';
 import { mergeAiAssist } from '@/lib/studio/ai-assist-merge';
+import { TYPE_ZH } from '@/lib/zh-labels';
 import type { StudioItem } from '@/lib/studio/editor-state';
 import type { Outfit, OutfitItem } from '@/lib/hooks/use-outfits';
 
@@ -35,20 +36,20 @@ function computeWarnings(items: StudioItem[]): string[] {
 
   if (!hasFullBody) {
     if (hasTop && !hasBottom) {
-      warnings.push('No bottoms selected.');
+      warnings.push('还没有选择下装。');
     }
     if (hasBottom && !hasTop) {
-      warnings.push('No top selected.');
+      warnings.push('还没有选择上装。');
     }
   }
 
   const bottomCount = roles.filter((r) => r === 'bottom').length;
   if (bottomCount > 1) {
-    warnings.push('Multiple bottoms selected.');
+    warnings.push('选择了多件下装。');
   }
 
   if (items.length >= 3 && !hasFootwear) {
-    warnings.push('No footwear selected.');
+    warnings.push('还没有选择鞋履。');
   }
 
   return warnings;
@@ -65,6 +66,10 @@ function toStudioItem(item: OutfitItem): StudioItem {
   };
 }
 
+function studioItemTitle(item: StudioItem): string {
+  return item.name || TYPE_ZH[item.type] || item.type;
+}
+
 export function DetailsPanel({
   items,
   name,
@@ -78,7 +83,7 @@ export function DetailsPanel({
 
   const handleAiAssist = async () => {
     if (items.length === 0 || !occasion) {
-      toast.error('Pick at least one item and an occasion first');
+      toast.error('请先选择至少一件衣物和一个场景');
       return;
     }
     setAiLoading(true);
@@ -96,20 +101,18 @@ export function DetailsPanel({
       if (skipped.length > 0) {
         for (const { item, reason } of skipped) {
           toast.info(
-            `Skipped ${item.name || item.type}: ${reason}`
+            `已跳过 ${studioItemTitle(item)}：${reason}`
           );
         }
       } else if (merged.length > items.length) {
         toast.success(
-          `Added ${merged.length - items.length} item${
-            merged.length - items.length === 1 ? '' : 's'
-          } from AI`
+          `AI 已补充 ${merged.length - items.length} 件衣物`
         );
       } else {
-        toast.info('AI had no new items to suggest');
+        toast.info('AI 没有新的衣物可补充');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'AI assist failed'));
+      toast.error(getErrorMessage(error, 'AI 辅助失败'));
     } finally {
       setAiLoading(false);
     }
@@ -119,29 +122,29 @@ export function DetailsPanel({
     <div className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="studio-name" className="flex items-center gap-1">
-          Name
+          名称
           <span className="text-xs text-muted-foreground font-normal ml-1">
-            (required for lookbook)
+            （保存到造型册时必填）
           </span>
         </Label>
         <Input
           id="studio-name"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Friday brunch"
+          placeholder="周五早午餐"
           maxLength={100}
         />
       </div>
 
       <div className="space-y-2">
         <Label className="flex items-center gap-1">
-          Occasion
-          <span className="text-destructive" aria-label="required">*</span>
+          场景
+          <span className="text-destructive" aria-label="必填">*</span>
         </Label>
         <OccasionChips selected={occasion} onSelect={onOccasionChange} />
         {!occasion && (
           <p className="text-xs text-muted-foreground mt-1">
-            Pick an occasion before saving.
+            保存前请选择一个场景。
           </p>
         )}
       </div>
@@ -171,12 +174,12 @@ export function DetailsPanel({
         {aiLoading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            AI is thinking...
+            AI 正在思考...
           </>
         ) : (
           <>
             <Sparkles className="h-4 w-4 mr-2" />
-            Let AI finish this
+            让 AI 补全这套
           </>
         )}
       </Button>

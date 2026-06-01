@@ -13,6 +13,7 @@ from app.models.outfit import Outfit, OutfitStatus, UserFeedback
 from app.models.user import User
 from app.utils.auth import get_current_user
 from app.utils.signed_urls import sign_image_url
+from app.utils.zh_labels import COLOR_ZH
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -318,23 +319,24 @@ async def get_analytics(
     insights = []
 
     if total_items == 0:
-        insights.append("Start by adding some items to your wardrobe!")
+        insights.append("先添加几件衣物，衣橱洞察会在这里出现。")
     else:
         # Wardrobe insights
         if len(never_worn) > 0:
             insights.append(
-                f"You have {len(never_worn)} items you've never worn. Consider styling them!"
+                f"你有 {len(never_worn)} 件衣物还没有穿过，可以试着搭配一下。"
             )
 
         # Color insights
         if color_distribution:
             top_color = color_distribution[0].color
+            top_color_zh = COLOR_ZH.get(top_color, top_color)
             if color_distribution[0].percentage > 40:
                 insights.append(
-                    f"Your wardrobe is heavy on {top_color} ({color_distribution[0].percentage}%). Consider adding variety!"
+                    f"你的衣橱中{top_color_zh}占比偏高（{color_distribution[0].percentage}%），可以增加一些其他颜色。"
                 )
             elif len(color_distribution) <= 3 and ready_items > 10:
-                insights.append("Your wardrobe has limited color variety. Explore new colors!")
+                insights.append("你的衣橱颜色种类较少，可以尝试加入新的颜色。")
 
         # Type insights
         if type_distribution:
@@ -352,23 +354,23 @@ async def get_analytics(
                 ratio = tops / bottoms
                 if ratio > 3:
                     insights.append(
-                        "You have many more tops than bottoms. Consider adding pants or skirts!"
+                        "你的上装明显多于下装，可以考虑增加裤装或半身裙。"
                     )
                 elif ratio < 0.5:
-                    insights.append("You have more bottoms than tops. Consider adding some shirts!")
+                    insights.append("你的下装多于上装，可以考虑增加一些衬衫或上衣。")
 
         # Outfit insights
         if acceptance_rate is not None:
             if acceptance_rate > 80:
-                insights.append(f"Great taste! You accept {acceptance_rate:.0f}% of suggestions.")
+                insights.append(f"你的推荐接受率很高，已接受 {acceptance_rate:.0f}% 的建议。")
             elif acceptance_rate < 50:
                 insights.append(
-                    "You reject many suggestions. Consider updating your style preferences."
+                    "你拒绝了较多推荐，可以更新风格偏好来提升建议质量。"
                 )
 
         if outfits_this_week == 0 and total_outfits > 0:
             insights.append(
-                "You haven't generated any outfits this week. Try getting a suggestion!"
+                "本周还没有生成穿搭，可以试试获取一次推荐。"
             )
 
     return AnalyticsResponse(

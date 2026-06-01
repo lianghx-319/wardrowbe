@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useSubmitFeedback, type Outfit } from '@/lib/hooks/use-outfits';
 import { useItems } from '@/lib/hooks/use-items';
 import { cn } from '@/lib/utils';
+import { TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
 
 function StarRating({
@@ -188,10 +189,10 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
           wore_instead_items: selectedItems.length > 0 ? selectedItems : undefined,
         },
       });
-      toast.success('Feedback submitted');
+      toast.success('反馈已提交');
       onClose();
     } catch {
-      toast.error('Failed to submit feedback');
+      toast.error('提交反馈失败');
     }
   };
 
@@ -203,10 +204,10 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
           actually_worn: false,
         },
       });
-      toast.success('Feedback submitted');
+      toast.success('反馈已提交');
       onClose();
     } catch {
-      toast.error('Failed to submit feedback');
+      toast.error('提交反馈失败');
     }
   };
 
@@ -220,9 +221,9 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
         {step === 'wear-question' && (
           <>
             <DialogHeader>
-              <DialogTitle>Did you wear this outfit?</DialogTitle>
+              <DialogTitle>你穿了这套搭配吗？</DialogTitle>
               <DialogDescription>
-                Let us know if you followed this recommendation so we can learn your preferences.
+                告诉我们你是否采用了这次推荐，AI 会据此学习你的偏好。
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3 py-4">
@@ -236,8 +237,8 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
                   <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="text-left">
-                  <div className="font-medium">Yes, I wore it</div>
-                  <div className="text-sm text-muted-foreground">Rate how it went</div>
+                  <div className="font-medium">是的，我穿了</div>
+                  <div className="text-sm text-muted-foreground">给这次穿搭评分</div>
                 </div>
               </Button>
               <Button
@@ -250,8 +251,8 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
                   <X className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="text-left">
-                  <div className="font-medium">No, I wore something else</div>
-                  <div className="text-sm text-muted-foreground">Tell us what you wore</div>
+                  <div className="font-medium">没有，我穿了别的</div>
+                  <div className="text-sm text-muted-foreground">告诉我们实际穿了什么</div>
                 </div>
               </Button>
             </div>
@@ -262,18 +263,18 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
         {step === 'rating' && (
           <>
             <DialogHeader>
-              <DialogTitle>Rate This Outfit</DialogTitle>
-              <DialogDescription>How did this outfit work out for you?</DialogDescription>
+              <DialogTitle>评价这套穿搭</DialogTitle>
+              <DialogDescription>这套穿搭实际效果怎么样？</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Overall Rating</label>
+                <label className="text-sm font-medium mb-2 block">整体评分</label>
                 <StarRating rating={rating} onRate={setRating} size="lg" />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Comments (optional)</label>
+                <label className="text-sm font-medium mb-2 block">备注（可选）</label>
                 <Textarea
-                  placeholder="Any thoughts about this outfit?"
+                  placeholder="对这套穿搭有什么想法？"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
@@ -283,15 +284,15 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
               {!outfit.feedback?.rating && (
                 <Button variant="ghost" onClick={() => setStep('wear-question')}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Back
+                  返回
                 </Button>
               )}
               <div className="flex gap-2 ml-auto">
                 <Button variant="outline" onClick={onClose}>
-                  Cancel
+                  取消
                 </Button>
                 <Button onClick={handleSubmit} disabled={submitFeedback.isPending}>
-                  {submitFeedback.isPending ? 'Submitting...' : 'Submit'}
+                  {submitFeedback.isPending ? '提交中...' : '提交'}
                 </Button>
               </div>
             </div>
@@ -302,9 +303,9 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
         {step === 'wore-instead' && (
           <>
             <DialogHeader>
-              <DialogTitle>What did you wear instead?</DialogTitle>
+              <DialogTitle>你实际穿了什么？</DialogTitle>
               <DialogDescription>
-                Select the items you actually wore. This helps us learn your preferences.
+                选择你实际穿着的衣物，这会帮助 AI 学习你的偏好。
               </DialogDescription>
             </DialogHeader>
 
@@ -312,7 +313,7 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search your wardrobe..."
+                placeholder="搜索衣橱..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -328,7 +329,7 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
               {/* Selected items count */}
               {selectedItems.length > 0 && (
                 <div className="text-xs text-muted-foreground mb-2">
-                  {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
+                  已选择 {selectedItems.length} 件
                 </div>
               )}
 
@@ -364,7 +365,7 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
                       )}
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
                         <span className="text-[10px] sm:text-xs text-white font-medium truncate block">
-                          {item.name || item.type}
+                          {item.name || TYPE_ZH[item.type] || item.type}
                         </span>
                       </div>
                     </button>
@@ -382,21 +383,21 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
               {isFetching && !isLoading && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-xs text-muted-foreground">Loading more...</span>
+                  <span className="text-xs text-muted-foreground">正在加载更多...</span>
                 </div>
               )}
 
               {/* Empty state */}
               {!isLoading && wardrobeItems.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
-                  {debouncedSearch ? 'No items match your search' : 'No items in wardrobe'}
+                  {debouncedSearch ? '没有匹配的衣物' : '衣橱里还没有衣物'}
                 </div>
               )}
 
               {/* End of results */}
               {!isLoading && !hasMore && wardrobeItems.length > 0 && (
                 <div className="text-center text-xs text-muted-foreground py-3">
-                  Showing all {totalItems} items
+                  已显示全部 {totalItems} 件衣物
                 </div>
               )}
             </div>
@@ -404,19 +405,19 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
             <div className="flex justify-between pt-2 border-t">
               <Button variant="ghost" onClick={() => setStep('wear-question')}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                Back
+                返回
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleSkipWoreInstead}>
-                  Skip
+                  跳过
                 </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={submitFeedback.isPending || selectedItems.length === 0}
                 >
                   {submitFeedback.isPending
-                    ? 'Submitting...'
-                    : `Submit (${selectedItems.length})`}
+                    ? '提交中...'
+                    : `提交（${selectedItems.length}）`}
                 </Button>
               </div>
             </div>

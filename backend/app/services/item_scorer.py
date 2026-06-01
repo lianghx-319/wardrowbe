@@ -112,10 +112,27 @@ def _weather_score(
     item_type = (item.type or "").lower()
     material = (item.material or "").lower()
     seasons = item.season or []
+    tags = item.tags or {}
+    features = set(tags.get("features") or [])
+    good_weather = set(tags.get("weather_suitability") or [])
+    avoid_weather = set(tags.get("weather_avoid") or [])
+    temp_min = tags.get("temperature_min_c")
+    temp_max = tags.get("temperature_max_c")
+    warmth = tags.get("warmth_level")
     score = 1.0
 
+    if isinstance(temp_min, (int, float)) and temp < temp_min:
+        score *= max(0.2, 1 - min(0.8, (temp_min - temp) * 0.08))
+    if isinstance(temp_max, (int, float)) and temp > temp_max:
+        score *= max(0.2, 1 - min(0.8, (temp - temp_max) * 0.08))
+
     if temp < cold_threshold:
-        if item_type in ("outerwear", "sweater") or material in ("wool", "fleece", "knit"):
+        if (
+            item_type in ("outerwear", "coat", "jacket", "sweater")
+            or material in ("wool", "fleece", "knit")
+            or features & {"warm", "insulated", "thermal"}
+            or warmth in {"warm", "very-warm"}
+        ):
             score = 1.0
         elif "winter" in seasons:
             score = 1.0
@@ -124,17 +141,45 @@ def _weather_score(
         else:
             score = 0.7
     elif temp > hot_threshold:
-        if material in ("cotton", "linen", "silk") or "summer" in seasons:
+        if (
+            material in ("cotton", "linen", "silk")
+            or "summer" in seasons
+            or features & {"breathable", "lightweight", "moisture-wicking", "quick-dry"}
+            or warmth in {"very-light", "light"}
+        ):
             score = 1.0
-        elif item_type in ("outerwear", "sweater", "boots"):
+        elif item_type in ("outerwear", "coat", "jacket", "sweater", "boots"):
             score = 0.05
         else:
             score = 0.8
     else:
         score = 1.0
 
-    if weather.precipitation_chance > 50 and item_type == "outerwear":
-        score = min(1.0, score + 0.1)
+    condition = (weather.condition or "").lower()
+    if weather.precipitation_chance > 50 or "rain" in condition:
+        if features & {"water-resistant", "waterproof"} or "rainy" in good_weather:
+            score = min(1.15, score + 0.15)
+        if "rainy" in avoid_weather:
+            score *= 0.45
+
+    if "wind" in condition or weather.wind_speed > 25:
+        if "wind-resistant" in features or "windy" in good_weather:
+            score = min(1.1, score + 0.1)
+        if "windy" in avoid_weather:
+            score *= 0.6
+
+    weather_bucket = "mild"
+    if temp < cold_threshold:
+        weather_bucket = "cold"
+    elif temp < 18:
+        weather_bucket = "cool"
+    elif temp > hot_threshold:
+        weather_bucket = "hot"
+
+    if weather_bucket in good_weather:
+        score = min(1.15, score + 0.1)
+    if weather_bucket in avoid_weather:
+        score *= 0.5
 
     return score
 

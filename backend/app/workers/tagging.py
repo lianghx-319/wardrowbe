@@ -4,9 +4,12 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
-from app.models.item import ClothingItem, ItemStatus
+from app.models.item import ClothingItem, ImageSource, ItemStatus
+from app.services.immich_service import temporary_asset_file
 from app.services.ai_service import AIService, ClothingTags
+from app.utils.zh_labels import build_zh_tags
 from app.workers.db import get_db_session
 
 logger = logging.getLogger(__name__)
@@ -27,9 +30,34 @@ def tags_to_item_fields(tags: ClothingTags, raw_response: str | None = None) -> 
         "brand": tags.brand,
         "condition": tags.condition,
         "features": tags.features or [],
+        "weather_suitability": tags.weather_suitability or [],
+        "weather_avoid": tags.weather_avoid or [],
+        "temperature_min_c": tags.temperature_min_c,
+        "temperature_max_c": tags.temperature_max_c,
+        "warmth_level": tags.warmth_level,
     }
     if tags.logprobs_confidence is not None:
         tags_jsonb["logprobs_confidence"] = tags.logprobs_confidence
+    if tags.ai_provider:
+        tags_jsonb["ai_provider"] = tags.ai_provider
+    if tags.ai_model:
+        tags_jsonb["ai_model"] = tags.ai_model
+    if tags.ai_models:
+        tags_jsonb["ai_models"] = tags.ai_models
+
+    zh_source = {
+        "type": tags.type,
+        "subtype": tags.subtype,
+        "primary_color": tags.primary_color,
+        "colors": tags.colors or [],
+        "pattern": tags.pattern,
+        "material": tags.material,
+        "style": tags.style or [],
+        "season": tags.season or [],
+        "formality": tags.formality,
+        "fit": tags.fit,
+    }
+    tags_zh = {**build_zh_tags(zh_source), **(tags.tags_zh or {})}
 
     fields = {
         "type": tags.type,
@@ -45,10 +73,21 @@ def tags_to_item_fields(tags: ClothingTags, raw_response: str | None = None) -> 
         "ai_processed": True,
         "ai_confidence": tags.confidence,
         "ai_description": tags.description,  # Human-readable description
+        "ai_description_zh": tags.description_zh,
+        "tags_zh": tags_zh,
         "status": ItemStatus.ready,
     }
+    if tags.brand:
+        fields["brand"] = tags.brand
+    ai_metadata = {
+        "provider": tags.ai_provider,
+        "model": tags.ai_model,
+        "models": tags.ai_models,
+    }
     if raw_response:
-        fields["ai_raw_response"] = {"raw_text": raw_response}
+        fields["ai_raw_response"] = {"raw_text": raw_response, **ai_metadata}
+    elif tags.ai_provider or tags.ai_model or tags.ai_models:
+        fields["ai_raw_response"] = ai_metadata
     return fields
 
 
@@ -135,7 +174,7 @@ async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, 
 
             # Update item fields - only update if user hasn't already set a value
             # Always update: ai_processed, ai_confidence, status, ai_raw_response
-            # Conditionally update: type, subtype, primary_color, colors, pattern, material, style, formality, season
+                # Conditionally update user-editable content fields.
             ai_fields = tags_to_item_fields(tags, tags.raw_response)
 
             for field, value in ai_fields.items():
@@ -146,7 +185,9 @@ async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, 
                     "status",
                     "ai_raw_response",
                     "tags",
+                    "tags_zh",
                     "ai_description",
+                    "ai_description_zh",
                 ):
                     setattr(item, field, value)
                 # Only update content fields if user hasn't set them (or they're default/unknown)
@@ -158,6 +199,9 @@ async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, 
                         setattr(item, field, value)
                 elif field == "primary_color":
                     if not item.primary_color or item.primary_color == "unknown":
+                        setattr(item, field, value)
+                elif field == "brand":
+                    if not item.brand:
                         setattr(item, field, value)
                 else:
                     # For other fields (colors, pattern, material, style, etc.), only set if not already set
@@ -187,3 +231,37 @@ async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, 
         logger.exception(f"Error tagging item {item_id}: {error_msg}")
         await update_item_status_to_error(ctx, item_id, error_msg)
         return {"status": "error", "error": error_msg}
+
+
+async def tag_item_by_id(ctx: dict, item_id: str) -> dict[str, Any]:
+    db = get_db_session(ctx)
+    try:
+        result = await db.execute(
+            select(ClothingItem)
+            .where(ClothingItem.id == UUID(item_id))
+            .options(selectinload(ClothingItem.immich_connection))
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            return {"status": "error", "error": "Item not found"}
+
+        if item.image_source == ImageSource.immich:
+            async with temporary_asset_file(item, db) as path:
+                return await tag_item_image(ctx, item_id, str(path))
+
+        if item.image_path:
+            from app.config import get_settings
+
+            settings = get_settings()
+            return await tag_item_image(ctx, item_id, f"{settings.storage_path}/{item.image_path}")
+
+        error_msg = "Item has no image source"
+        await update_item_status_to_error(ctx, item_id, error_msg)
+        return {"status": "error", "error": error_msg}
+    except Exception as e:
+        error_msg = str(e)
+        logger.exception("Error tagging item %s by source: %s", item_id, error_msg)
+        await update_item_status_to_error(ctx, item_id, error_msg)
+        return {"status": "error", "error": error_msg}
+    finally:
+        await db.close()

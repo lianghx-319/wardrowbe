@@ -28,7 +28,7 @@ export function OfflineIndicator() {
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 lg:bottom-4 z-50">
       <div className="flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2 rounded-full shadow-lg">
         <WifiOff className="w-4 h-4" />
-        <span className="text-sm font-medium">You&apos;re offline</span>
+        <span className="text-sm font-medium">你已离线</span>
       </div>
     </div>
   );

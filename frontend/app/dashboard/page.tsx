@@ -48,7 +48,7 @@ function WeatherCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Cloud className="h-4 w-4" />
-            Today&apos;s Weather
+            今日天气
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -65,15 +65,15 @@ function WeatherCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Cloud className="h-4 w-4" />
-            Today&apos;s Weather
+            今日天气
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-3">
-            Location not set
+            还没有设置位置
           </p>
           <Button size="sm" variant="outline" asChild>
-            <Link href="/dashboard/settings">Set Location</Link>
+            <Link href="/dashboard/settings">设置位置</Link>
           </Button>
         </CardContent>
       </Card>
@@ -85,14 +85,14 @@ function WeatherCard() {
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Cloud className="h-4 w-4" />
-          Today&apos;s Weather
+          今日天气
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-3xl font-bold">{displayValue(weather.temperature, unit)}{tempSymbol(unit)}</span>
           <span className="text-muted-foreground text-sm">
-            feels {displayValue(weather.feels_like, unit)}°
+            体感 {displayValue(weather.feels_like, unit)}°
           </span>
         </div>
         <p className="text-sm text-muted-foreground capitalize mb-1">
@@ -101,13 +101,13 @@ function WeatherCard() {
         {weather.precipitation_chance > 0 && (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Droplets className="h-3 w-3" />
-            {weather.precipitation_chance}% chance of rain
+            降雨概率 {weather.precipitation_chance}%
           </p>
         )}
         <Button size="sm" className="w-full mt-3" asChild>
           <Link href="/dashboard/suggest">
             <Sparkles className="h-4 w-4 mr-1" />
-            Get Outfit Suggestion
+            获取穿搭建议
           </Link>
         </Button>
       </CardContent>
@@ -123,18 +123,18 @@ function PendingOutfitsCard() {
   const handleAccept = async (id: string) => {
     try {
       await acceptOutfit.mutateAsync(id);
-      toast.success('Outfit accepted');
+      toast.success('已接受穿搭');
     } catch {
-      toast.error('Failed to accept outfit');
+      toast.error('接受穿搭失败');
     }
   };
 
   const handleReject = async (id: string) => {
     try {
       await rejectOutfit.mutateAsync(id);
-      toast.success('Outfit rejected');
+      toast.success('已拒绝穿搭');
     } catch {
-      toast.error('Failed to reject outfit');
+      toast.error('拒绝穿搭失败');
     }
   };
 
@@ -144,7 +144,7 @@ function PendingOutfitsCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            Pending Outfits
+            待确认穿搭
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -163,12 +163,12 @@ function PendingOutfitsCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-500" />
-            All Caught Up
+            暂无待处理
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            No outfits waiting for your response
+            没有需要你确认的穿搭
           </p>
         </CardContent>
       </Card>
@@ -181,12 +181,12 @@ function PendingOutfitsCard() {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Clock className="h-4 w-4 text-orange-500" />
-            Pending Outfits
+            待确认穿搭
             <Badge variant="secondary" className="ml-1">{data?.total || pendingOutfits.length}</Badge>
           </CardTitle>
           {(data?.total ?? 0) > 2 && (
             <Link href="/dashboard/history" className="text-xs text-muted-foreground hover:text-foreground">
-              View all
+              查看全部
             </Link>
           )}
         </div>
@@ -223,7 +223,7 @@ function PendingOutfitsCard() {
                   weekday: 'short',
                   month: 'short',
                   day: 'numeric',
-                }) : 'Lookbook'}
+                }) : '灵感册'}
               </p>
             </div>
             <div className="flex gap-1">
@@ -288,7 +288,7 @@ function NextScheduledCard() {
     return closest;
   }, [schedules]);
 
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
   if (isLoading) {
     return (
@@ -296,7 +296,7 @@ function NextScheduledCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Next Scheduled
+            下次提醒
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -313,13 +313,13 @@ function NextScheduledCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Next Scheduled
+            下次提醒
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">No schedules set up</p>
+          <p className="text-sm text-muted-foreground mb-2">还没有设置提醒</p>
           <Button size="sm" variant="outline" asChild>
-            <Link href="/dashboard/notifications">Set Up Schedule</Link>
+            <Link href="/dashboard/notifications">设置提醒</Link>
           </Button>
         </CardContent>
       </Card>
@@ -328,25 +328,25 @@ function NextScheduledCard() {
 
   const { schedule, daysUntil } = nextSchedule;
   const timeStr = schedule.notification_time.slice(0, 5);
-  const dayStr = daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : dayNames[schedule.day_of_week];
+  const dayStr = daysUntil === 0 ? '今天' : daysUntil === 1 ? '明天' : dayNames[schedule.day_of_week];
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Calendar className="h-4 w-4" />
-          Next Scheduled
+          下次提醒
         </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="font-semibold">
-          {dayStr} at {timeStr}
+          {dayStr} {timeStr}
         </p>
         <p className="text-sm text-muted-foreground capitalize">
-          {schedule.occasion} outfit
+          {schedule.occasion} 穿搭
         </p>
         {daysUntil === 0 && (
-          <Badge variant="secondary" className="mt-2">Coming up</Badge>
+          <Badge variant="secondary" className="mt-2">即将到来</Badge>
         )}
       </CardContent>
     </Card>
@@ -362,7 +362,7 @@ function NotificationStatusCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            Notifications
+            通知
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -382,13 +382,13 @@ function NotificationStatusCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <BellOff className="h-4 w-4 text-muted-foreground" />
-            Notifications
+            通知
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">No channels configured</p>
+          <p className="text-sm text-muted-foreground mb-2">还没有配置通知渠道</p>
           <Button size="sm" variant="outline" asChild>
-            <Link href="/dashboard/notifications">Add Channel</Link>
+            <Link href="/dashboard/notifications">添加渠道</Link>
           </Button>
         </CardContent>
       </Card>
@@ -401,10 +401,10 @@ function NotificationStatusCard() {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            Notifications
+            通知
           </CardTitle>
           <Link href="/dashboard/notifications" className="text-xs text-muted-foreground hover:text-foreground">
-            Configure
+            配置
           </Link>
         </div>
       </CardHeader>
@@ -426,7 +426,7 @@ function NotificationStatusCard() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {enabledChannels.length} of {channels.length} active
+          已启用 {enabledChannels.length} / {channels.length}
         </p>
       </CardContent>
     </Card>
@@ -442,7 +442,7 @@ function WeeklySummaryCard() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            This Week
+            本周
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -464,25 +464,25 @@ function WeeklySummaryCard() {
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
-          This Week
+          本周
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-2xl font-bold">{wardrobe.outfits_this_week}</p>
-            <p className="text-xs text-muted-foreground">outfits</p>
+            <p className="text-xs text-muted-foreground">套穿搭</p>
           </div>
           <div>
             <p className="text-2xl font-bold">
               {wardrobe.acceptance_rate ? `${wardrobe.acceptance_rate}%` : '-'}
             </p>
-            <p className="text-xs text-muted-foreground">accepted</p>
+            <p className="text-xs text-muted-foreground">接受率</p>
           </div>
         </div>
         {wardrobe.average_rating && (
           <p className="text-xs text-muted-foreground mt-2">
-            Avg rating: {wardrobe.average_rating}/5
+            平均评分：{wardrobe.average_rating}/5
           </p>
         )}
       </CardContent>
@@ -499,7 +499,7 @@ function InsightsCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5" />
-            Insights
+            洞察
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -520,11 +520,11 @@ function InsightsCard() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5" />
-            Insights
+            洞察
           </CardTitle>
           {insights.length > 3 && (
             <Link href="/dashboard/analytics" className="text-sm text-muted-foreground hover:text-foreground flex items-center">
-              View all <ChevronRight className="h-4 w-4" />
+              查看全部 <ChevronRight className="h-4 w-4" />
             </Link>
           )}
         </div>
@@ -541,7 +541,7 @@ function InsightsCard() {
           </ul>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Add more items and generate outfits to see personalized insights!
+            添加更多衣物并生成穿搭后，这里会显示个性化洞察。
           </p>
         )}
       </CardContent>
@@ -564,20 +564,20 @@ function FamilyFeedCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HeartHandshake className="h-5 w-5" />
-          Family Outfits
+          家庭穿搭
         </CardTitle>
         <CardDescription>
-          See what your family is wearing and rate their outfits
+          查看家人的穿搭并给出反馈
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
-          <span>{memberCount} member{memberCount !== 1 ? 's' : ''} in {family.name}</span>
+          <span>{family.name} 中有 {memberCount} 位成员</span>
         </div>
         <Button asChild className="w-full">
           <Link href="/dashboard/family/feed">
-            Browse Family Outfits
+            浏览家庭穿搭
             <ChevronRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
@@ -590,20 +590,20 @@ function QuickActionsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
-        <CardDescription>Common tasks to get you started</CardDescription>
+        <CardTitle>快捷操作</CardTitle>
+        <CardDescription>常用的衣橱操作</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         <Button asChild className="w-full justify-start">
           <Link href="/dashboard/wardrobe">
             <Plus className="mr-2 h-4 w-4" />
-            Add New Item
+            添加衣物
           </Link>
         </Button>
         <Button asChild variant="outline" className="w-full justify-start">
           <Link href="/dashboard/suggest">
             <Sparkles className="mr-2 h-4 w-4" />
-            Get Outfit Suggestion
+            获取穿搭建议
           </Link>
         </Button>
       </CardContent>
@@ -618,10 +618,10 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back, {session?.user?.name?.split(' ')[0] || 'User'}
+          欢迎回来，{session?.user?.name?.split(' ')[0] || '用户'}
         </h1>
         <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your wardrobe
+          这是你的衣橱近况
         </p>
       </div>
 

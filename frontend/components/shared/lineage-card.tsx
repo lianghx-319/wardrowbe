@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { ArrowRight, BookmarkCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useOutfit } from '@/lib/hooks/use-outfits';
 import type { Outfit } from '@/lib/hooks/use-outfits';
+import { OCCASION_ZH } from '@/lib/zh-labels';
 
 interface LineageCardProps {
   outfit: Outfit;
@@ -23,14 +25,15 @@ export function LineageCard({ outfit }: LineageCardProps) {
 
   const isReplacement = !!replacesId;
   const Icon = isReplacement ? ArrowRight : BookmarkCheck;
+  const referencedOccasion = OCCASION_ZH[referenced.occasion] || referenced.occasion;
 
   const label = isReplacement
-    ? `Replaces ${referenced.occasion} suggestion${
+    ? `替代 ${referencedOccasion} 建议${
         referenced.scheduled_for
-          ? ` from ${format(parseISO(referenced.scheduled_for), 'MMM d')}`
+          ? `（${format(parseISO(referenced.scheduled_for), 'M月d日', { locale: zhCN })}）`
           : ''
       }`
-    : `From your ${referenced.name || referenced.occasion} lookbook entry`;
+    : `来自你的 ${referenced.name || referencedOccasion} 灵感册条目`;
 
   return (
     <Card className="border-muted bg-muted/30">

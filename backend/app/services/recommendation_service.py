@@ -226,6 +226,35 @@ class RecommendationService:
             if fit:
                 parts.append(f"{fit} fit")
 
+            if item.tags:
+                features = item.tags.get("features") or []
+                if features:
+                    parts.append(f"features: {', '.join(features)}")
+
+                weather_suitability = item.tags.get("weather_suitability") or []
+                if weather_suitability:
+                    parts.append(f"good weather: {', '.join(weather_suitability)}")
+
+                weather_avoid = item.tags.get("weather_avoid") or []
+                if weather_avoid:
+                    parts.append(f"avoid weather: {', '.join(weather_avoid)}")
+
+                temp_min = item.tags.get("temperature_min_c")
+                temp_max = item.tags.get("temperature_max_c")
+                if temp_min is not None and temp_max is not None:
+                    parts.append(f"comfort range: {temp_min}-{temp_max}°C")
+
+                warmth = item.tags.get("warmth_level")
+                if warmth:
+                    parts.append(f"warmth: {warmth}")
+
+                condition = item.tags.get("condition")
+                if condition:
+                    parts.append(f"condition: {condition}")
+
+            if item.brand:
+                parts.append(f"brand: {item.brand}")
+
             if item.name:
                 parts.insert(0, f'"{item.name}"')
 

@@ -17,6 +17,7 @@ import {
   addMonths,
   subMonths,
 } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 import type { Outfit, OutfitSource } from '@/lib/hooks/use-outfits';
 
 interface OutfitCalendarProps {
@@ -72,7 +73,7 @@ export function OutfitCalendar({
     onMonthChange(next.getFullYear(), next.getMonth() + 1);
   };
 
-  const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   return (
     <div className="w-full">
@@ -82,7 +83,7 @@ export function OutfitCalendar({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <h3 className="font-semibold text-lg">
-          {format(currentMonth, 'MMMM yyyy')}
+          {format(currentMonth, 'yyyy 年 M 月', { locale: zhCN })}
         </h3>
         <Button variant="ghost" size="icon" onClick={handleNextMonth}>
           <ChevronRight className="h-4 w-4" />
@@ -157,11 +158,11 @@ export function OutfitCalendar({
       <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-primary" />
-          <span>Scheduled</span>
+          <span>计划</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-orange-500" />
-          <span>On-demand</span>
+          <span>即时</span>
         </div>
       </div>
     </div>

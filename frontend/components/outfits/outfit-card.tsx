@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
 import {
   BookmarkCheck,
   Layers,
@@ -15,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { Outfit } from '@/lib/hooks/use-outfits';
+import { OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 
 interface OutfitCardProps {
   outfit: Outfit;
@@ -28,7 +30,7 @@ function getSourceBadge(outfit: Outfit): {
 } | null {
   if (outfit.replaces_outfit_id) {
     return {
-      label: 'Replacement',
+      label: '替换',
       icon: <RefreshCw className="h-3 w-3" />,
       className: 'bg-orange-100 text-orange-700 border-orange-200',
     };
@@ -39,21 +41,21 @@ function getSourceBadge(outfit: Outfit): {
     outfit.scheduled_for
   ) {
     return {
-      label: 'Worn',
+      label: '已穿',
       icon: <BookmarkCheck className="h-3 w-3" />,
       className: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     };
   }
   if (outfit.source === 'manual') {
     return {
-      label: 'Studio',
+      label: '编辑器',
       icon: <Shirt className="h-3 w-3" />,
       className: 'bg-purple-100 text-purple-700 border-purple-200',
     };
   }
   if (outfit.source === 'pairing') {
     return {
-      label: 'Pairing',
+      label: '搭配',
       icon: <Layers className="h-3 w-3" />,
       className: 'bg-amber-100 text-amber-700 border-amber-200',
     };
@@ -70,16 +72,16 @@ function getCardTitle(outfit: Outfit): string {
   if (outfit.highlights && outfit.highlights.length > 0) {
     return outfit.highlights[0];
   }
-  const occasion =
-    outfit.occasion.charAt(0).toUpperCase() + outfit.occasion.slice(1);
-  return `${occasion} outfit`;
+  const occasion = OCCASION_ZH[outfit.occasion] || outfit.occasion;
+  return `${occasion}穿搭`;
 }
 
 function getMetaLabel(outfit: Outfit): string {
-  if (!outfit.scheduled_for) return 'Lookbook template';
+  if (!outfit.scheduled_for) return '造型模板';
   try {
     return formatDistanceToNow(parseISO(outfit.scheduled_for), {
       addSuffix: true,
+      locale: zhCN,
     });
   } catch {
     return outfit.scheduled_for;
@@ -119,7 +121,7 @@ export function OutfitCard({ outfit, onClick }: OutfitCardProps) {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <span className="text-[10px] text-muted-foreground">
-                      {item.type}
+                      {TYPE_ZH[item.type] || item.type}
                     </span>
                   </div>
                 )}
@@ -151,7 +153,7 @@ export function OutfitCard({ outfit, onClick }: OutfitCardProps) {
           </h3>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <Badge variant="outline" className="capitalize">
-              {outfit.occasion}
+              {OCCASION_ZH[outfit.occasion] || outfit.occasion}
             </Badge>
             <span>{getMetaLabel(outfit)}</span>
           </div>

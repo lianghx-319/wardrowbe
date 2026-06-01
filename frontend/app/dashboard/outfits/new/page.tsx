@@ -178,11 +178,11 @@ export default function StudioEditorPage() {
 
   const handleSave = async (markWorn: boolean) => {
     if (state.items.length === 0) {
-      toast.error('Pick at least one item');
+      toast.error('请至少选择一件衣物');
       return;
     }
     if (!state.occasion) {
-      toast.error('Pick an occasion');
+      toast.error('请选择场景');
       return;
     }
 
@@ -195,20 +195,20 @@ export default function StudioEditorPage() {
             items: state.items.map((i) => i.id),
           },
         });
-        toast.success('Outfit updated');
+        toast.success('穿搭已更新');
         router.push(`/dashboard/outfits/${editId}`);
       } catch (error) {
         if (isWornImmutableError(error)) {
           setWornConflictOpen(true);
           return;
         }
-        toast.error(getErrorMessage(error, 'Failed to save outfit'));
+        toast.error(getErrorMessage(error, '保存穿搭失败'));
       }
       return;
     }
 
     if (!markWorn && !state.name.trim()) {
-      toast.error('Give your lookbook entry a name before saving');
+      toast.error('保存到灵感册前，请先起一个名称');
       return;
     }
 
@@ -223,14 +223,14 @@ export default function StudioEditorPage() {
         mark_worn: markWorn,
       });
       clearDraft();
-      toast.success(markWorn ? 'Saved and marked worn' : 'Saved to lookbook');
+      toast.success(markWorn ? '已保存并标记为已穿' : '已保存到灵感册');
       router.push(
         markWorn
           ? '/dashboard/outfits?filter=worn'
           : '/dashboard/outfits?filter=my-looks'
       );
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save outfit'));
+      toast.error(getErrorMessage(error, '保存穿搭失败'));
     }
   };
 
@@ -261,12 +261,12 @@ export default function StudioEditorPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] px-4 text-center">
         <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
-        <h2 className="text-lg font-semibold mb-1">Outfit not found</h2>
+        <h2 className="text-lg font-semibold mb-1">找不到这套穿搭</h2>
         <p className="text-sm text-muted-foreground mb-4 max-w-md">
-          This outfit no longer exists. It may have been deleted from another tab or device.
+          这套穿搭已不存在，可能已在其他标签页或设备上删除。
         </p>
         <Button asChild>
-          <Link href="/dashboard/outfits">Back to outfits</Link>
+          <Link href="/dashboard/outfits">返回穿搭</Link>
         </Button>
       </div>
     );
@@ -275,11 +275,11 @@ export default function StudioEditorPage() {
   if (isEditMode && editPhase === 'error') {
     const isAuthError = editErrorStatus === 401 || editErrorStatus === 403;
     const headline = isAuthError
-      ? "You can't edit this outfit"
-      : "Couldn't load this outfit";
+      ? '你不能编辑这套穿搭'
+      : '无法加载这套穿搭';
     const body = isAuthError
-      ? 'Your session may have expired or this outfit belongs to another account.'
-      : 'Something went wrong while loading this outfit. Check your connection and try again.';
+      ? '你的登录可能已过期，或这套穿搭属于其他账号。'
+      : '加载穿搭时出错，请检查连接后重试。';
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] px-4 text-center">
         <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
@@ -288,11 +288,11 @@ export default function StudioEditorPage() {
         <div className="flex gap-2">
           {!isAuthError && (
             <Button variant="outline" onClick={() => refetchEdit()}>
-              Try again
+              重试
             </Button>
           )}
           <Button asChild>
-            <Link href="/dashboard/outfits">Back to outfits</Link>
+            <Link href="/dashboard/outfits">返回穿搭</Link>
           </Button>
         </div>
       </div>
@@ -304,16 +304,15 @@ export default function StudioEditorPage() {
       <>
         <div className="flex flex-col items-center justify-center h-[60vh] px-4 text-center">
           <AlertCircle className="h-10 w-10 text-muted-foreground mb-3" />
-          <h2 className="text-lg font-semibold mb-1">This outfit has been worn</h2>
+          <h2 className="text-lg font-semibold mb-1">这套穿搭已经穿过</h2>
           <p className="text-sm text-muted-foreground mb-4 max-w-md">
-            Worn outfits can&apos;t be edited because they&apos;re part of your wear history.
-            You can save a copy as a new lookbook entry instead.
+            已穿过的穿搭会保留在穿着记录中，不能直接编辑。你可以另存为新的灵感册条目。
           </p>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/dashboard/outfits/${editId}`}>Back to outfit</Link>
+              <Link href={`/dashboard/outfits/${editId}`}>返回穿搭</Link>
             </Button>
-            <Button onClick={() => setCloneDialogOpen(true)}>Save as new</Button>
+            <Button onClick={() => setCloneDialogOpen(true)}>另存为新穿搭</Button>
           </div>
         </div>
         <CloneToLookbookDialog
@@ -331,78 +330,81 @@ export default function StudioEditorPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
-        <Button variant="ghost" size="sm" asChild>
+      <div className="sticky top-0 z-10 bg-background border-b px-3 py-3 sm:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" asChild className="shrink-0">
           <Link href={cancelHref}>
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Cancel
+            取消
           </Link>
         </Button>
-        <h1 className="text-lg font-semibold">
-          {isEditMode ? 'Edit Outfit' : 'Studio'}
+        <h1 className="min-w-0 flex-1 text-center text-base font-semibold sm:text-lg">
+          {isEditMode ? '编辑穿搭' : '穿搭工作台'}
         </h1>
-        <div className="flex flex-col items-end">
-          <div className="flex gap-2">
+        <div className="flex min-w-0 flex-col items-end">
+          <div className="flex max-w-full gap-1.5 sm:gap-2">
             {!isEditMode && (
               <Button
                 variant="outline"
                 size="sm"
+                className="px-2 sm:px-3"
                 disabled={!canSave}
                 onClick={() => handleSave(true)}
               >
                 {mutationPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  'Wear Today'
+                  '今天穿'
                 )}
               </Button>
             )}
-            <Button size="sm" disabled={!canSave} onClick={() => handleSave(false)}>
+            <Button size="sm" className="px-2 sm:px-3" disabled={!canSave} onClick={() => handleSave(false)}>
               {mutationPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : isEditMode ? (
-                'Save Changes'
+                '保存修改'
               ) : (
-                'Save to Lookbook'
+                '保存到灵感册'
               )}
             </Button>
           </div>
           {!canSave && !mutationPending && (
             <p className="text-xs text-muted-foreground mt-1 text-right">
               {state.items.length === 0 && state.occasion === null
-                ? 'Pick at least one item and an occasion'
+                ? '请至少选择一件衣物和一个场景'
                 : state.items.length === 0
-                  ? 'Pick at least one item'
+                  ? '请至少选择一件衣物'
                   : state.occasion === null
-                    ? 'Pick an occasion'
+                    ? '请选择场景'
                     : ''}
             </p>
           )}
         </div>
+        </div>
       </div>
 
       {pendingDraft && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex items-center justify-between gap-4">
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-blue-900">
-            You have an unsaved draft from your last session. Resume it?
+            你有一个上次未保存的草稿，要继续编辑吗？
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:shrink-0">
             <Button size="sm" variant="outline" onClick={handleDiscardDraft}>
-              Start fresh
+              重新开始
             </Button>
             <Button size="sm" onClick={handleResumeDraft}>
-              Resume
+              继续草稿
             </Button>
           </div>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                Canvas
+                画布
               </h2>
               <CanvasPanel
                 items={state.items}
@@ -411,7 +413,7 @@ export default function StudioEditorPage() {
             </div>
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                Details
+                详情
               </h2>
               <DetailsPanel
                 items={state.items}
@@ -430,13 +432,13 @@ export default function StudioEditorPage() {
 
           <div>
             <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-              Your Wardrobe
+              你的衣橱
             </h2>
             <ItemPicker
               selectedIds={selectedIds}
               onToggle={handleToggle}
               hideNeedsWash={true}
-              emptyMessage="No items in your wardrobe yet. Add items first."
+              emptyMessage="衣橱里还没有衣物，请先添加衣物。"
               heightClass="h-[280px]"
             />
           </div>
@@ -446,21 +448,20 @@ export default function StudioEditorPage() {
       <AlertDialog open={wornConflictOpen} onOpenChange={setWornConflictOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>This outfit has been worn</AlertDialogTitle>
+            <AlertDialogTitle>这套穿搭已经穿过</AlertDialogTitle>
             <AlertDialogDescription>
-              Worn outfits can&apos;t be edited because they&apos;re part of your wear history. Save your
-              changes as a new lookbook entry instead?
+              已穿过的穿搭会保留在穿着记录中，不能直接编辑。要把修改另存为新的灵感册条目吗？
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Discard changes</AlertDialogCancel>
+            <AlertDialogCancel>放弃修改</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setWornConflictOpen(false);
                 setCloneDialogOpen(true);
               }}
             >
-              Save as new
+              另存为新穿搭
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

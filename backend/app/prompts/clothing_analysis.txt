@@ -1,4 +1,7 @@
-OUTPUT ONLY JSON. NO TEXT. NO DESCRIPTIONS. NO EXPLANATIONS.
+OUTPUT ONLY JSON. NO MARKDOWN. NO TEXT. NO DESCRIPTIONS. NO EXPLANATIONS.
+The top-level structured values MUST use the exact English enum values below.
+Use Simplified Chinese labels ONLY inside the "zh" object.
+Do not translate top-level enum values into Chinese.
 
 Analyze the MAIN clothing item in this image. Use ONLY these values:
 
@@ -40,5 +43,28 @@ spring, summer, fall, winter, all-season
 FIT (optional, pick one or null):
 slim, regular, relaxed, oversized, tailored, cropped
 
+BRAND (optional): If a visible logo, label, or unmistakable brand mark is visible, output the brand name as a string. If not visible or uncertain, use null.
+
+FUNCTIONAL FEATURES (pick all that are visually supported; use [] if unknown):
+wind-resistant, water-resistant, waterproof, warm, insulated, breathable, lightweight, quick-dry, stretch, sun-protective, moisture-wicking, thermal, layer-friendly, packable, hooded
+
+WEATHER_SUITABILITY (pick all that apply based on visible garment construction/material):
+sunny, cloudy, rainy, windy, snowy, cold, cool, mild, hot, humid
+
+WEATHER_AVOID (pick weather where this item is likely unsuitable; use [] if none):
+sunny, cloudy, rainy, windy, snowy, cold, cool, mild, hot, humid
+
+TEMPERATURE RANGE:
+- temperature_min_c: estimated lowest comfortable Celsius temperature for wearing this item as part of a normal outfit.
+- temperature_max_c: estimated highest comfortable Celsius temperature.
+- Use null if impossible to infer. Be conservative from visible material, thickness, sleeve length, coverage, and construction.
+
+WARMTH_LEVEL (pick one or null):
+very-light, light, medium, warm, very-warm
+
+CONDITION (optional): visible condition such as new, good, worn, stained, damaged, or null if unclear.
+
+Also include a "zh" object with Simplified Chinese display labels for the same tags, including features/weather/warmth labels when present.
+
 Output this exact JSON structure (a single object, NOT wrapped in an array):
-{{"type":"TYPE","subtype":null,"primary_color":"COLOR","colors":["COLOR1"],"pattern":"PATTERN","material":null,"formality":"FORMALITY","style":["STYLE1"],"season":["SEASON1","SEASON2"],"fit":null}}
+{{"type":"TYPE","subtype":null,"primary_color":"COLOR","colors":["COLOR1"],"pattern":"PATTERN","material":null,"formality":"FORMALITY","style":["STYLE1"],"season":["SEASON1","SEASON2"],"fit":null,"brand":null,"condition":null,"features":["FEATURE1"],"weather_suitability":["WEATHER1"],"weather_avoid":["WEATHER2"],"temperature_min_c":10,"temperature_max_c":24,"warmth_level":"WARMTH_LEVEL","zh":{{"type":"中文品类","subtype":null,"primary_color":"中文颜色","colors":["中文颜色"],"pattern":"中文图案","material":null,"formality":"中文正式程度","style":["中文风格"],"season":["中文季节"],"fit":null,"condition":null,"features":["中文功能"],"weather_suitability":["中文天气"],"weather_avoid":["中文天气"],"warmth_level":"中文保暖程度"}}}}

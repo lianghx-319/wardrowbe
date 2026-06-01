@@ -41,7 +41,7 @@ export default function DashboardLayout({
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading your wardrobe...</p>
+          <p className="text-sm text-muted-foreground">正在加载衣橱...</p>
         </div>
       </div>
     );
@@ -58,7 +58,7 @@ export default function DashboardLayout({
         <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:pl-72">
           <Header onMenuClick={() => setSidebarOpen(true)} />
-          <main className="py-6 px-4 sm:px-6 lg:px-8 pb-20 lg:pb-6 overflow-x-hidden">
+          <main className="px-3 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8 lg:pb-6 overflow-x-hidden">
             {children}
           </main>
         </div>

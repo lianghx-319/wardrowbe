@@ -47,6 +47,7 @@ import { useWeather, Weather } from '@/lib/hooks/use-weather';
 import { usePreferences } from '@/lib/hooks/use-preferences';
 import { cn } from '@/lib/utils';
 import { TempUnit, formatTemp, displayValue, toF, toCelsius } from '@/lib/temperature';
+import { OCCASION_ZH, TYPE_ZH, itemTitleZh } from '@/lib/zh-labels';
 
 // Map occasion values to icons and colors
 const OCCASION_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -69,25 +70,34 @@ function getWeatherIcon(condition: string, isDay: boolean) {
   return isDay ? <Sun className="h-8 w-8" /> : <Cloud className="h-8 w-8" />;
 }
 
-// Get time-based greeting
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return '早上好';
+  if (hour < 17) return '下午好';
+  return '晚上好';
 }
 
-// Get weather-based outfit hint
 function getWeatherHint(weather: Weather): string {
   const temp = weather.temperature;
   const condition = weather.condition.toLowerCase();
 
-  if (weather.precipitation_chance > 50) return 'Bring an umbrella or rain jacket';
-  if (temp < 10) return 'Layer up - it\'s quite cold';
-  if (temp < 18) return 'A light jacket would be perfect';
-  if (temp > 28) return 'Keep it light and breathable';
-  if (condition.includes('wind')) return 'Consider something windproof';
-  return 'Great weather for any style';
+  if (weather.precipitation_chance > 50) return '记得带伞或雨衣';
+  if (temp < 10) return '天气较冷，适合多穿几层';
+  if (temp < 18) return '轻薄外套会很合适';
+  if (temp > 28) return '建议选择轻薄透气的衣物';
+  if (condition.includes('wind')) return '可以考虑防风外套';
+  return '今天很适合自由搭配';
+}
+
+function weatherConditionZh(condition: string): string {
+  const c = condition.toLowerCase();
+  if (c.includes('rain') || c.includes('drizzle')) return '雨';
+  if (c.includes('snow')) return '雪';
+  if (c.includes('thunder') || c.includes('storm')) return '雷暴';
+  if (c.includes('cloud') && c.includes('part')) return '局部多云';
+  if (c.includes('cloud') || c.includes('overcast')) return '多云';
+  if (c.includes('sun') || c.includes('clear')) return '晴';
+  return condition;
 }
 
 interface WeatherOverride {
@@ -99,8 +109,8 @@ function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weathe
   if (isLoading) {
     return (
       <Card className="border-muted">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Skeleton className="h-16 w-16 rounded-full" />
             <div className="space-y-2">
               <Skeleton className="h-8 w-24" />
@@ -115,15 +125,15 @@ function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weathe
   if (!weather) {
     return (
       <Card className="border-dashed">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
               <MapPin className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-medium">Location not set</p>
+              <p className="font-medium">尚未设置位置</p>
               <p className="text-sm text-muted-foreground">
-                Set your location in settings for weather-aware suggestions
+                在设置中填写位置后，可以获得结合天气的建议
               </p>
             </div>
           </div>
@@ -134,9 +144,9 @@ function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weathe
 
   return (
     <Card className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center text-foreground">
               {getWeatherIcon(weather.condition, weather.is_day)}
             </div>
@@ -145,19 +155,19 @@ function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weathe
                 <span className="text-4xl font-semibold tracking-tight">{displayValue(weather.temperature, temperatureUnit)}</span>
                 <span className="text-lg text-muted-foreground">{temperatureUnit === 'fahrenheit' ? '°F' : '°C'}</span>
               </div>
-              <p className="text-sm text-muted-foreground capitalize">{weather.condition}</p>
+              <p className="text-sm text-muted-foreground">{weatherConditionZh(weather.condition)}</p>
             </div>
           </div>
-          <div className="text-right text-sm text-muted-foreground space-y-1">
-            <div className="flex items-center gap-1.5 justify-end">
+          <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground sm:block sm:space-y-1 sm:text-right sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:justify-end">
               <Thermometer className="h-3.5 w-3.5" />
-              <span>Feels {displayValue(weather.feels_like, temperatureUnit)}°</span>
+              <span>体感 {displayValue(weather.feels_like, temperatureUnit)}°</span>
             </div>
-            <div className="flex items-center gap-1.5 justify-end">
+            <div className="flex items-center gap-1.5 sm:justify-end">
               <Droplets className="h-3.5 w-3.5" />
-              <span>{weather.precipitation_chance}% rain</span>
+              <span>降雨 {weather.precipitation_chance}%</span>
             </div>
-            <div className="flex items-center gap-1.5 justify-end">
+            <div className="flex items-center gap-1.5 sm:justify-end">
               <Wind className="h-3.5 w-3.5" />
               <span>{Math.round(weather.wind_speed)} km/h</span>
             </div>
@@ -197,7 +207,9 @@ function OccasionChips({
             )}
           >
             {config?.icon}
-            <span className="text-sm font-medium">{occasion.label}</span>
+            <span className="text-sm font-medium">
+              {OCCASION_ZH[occasion.value] || occasion.label}
+            </span>
           </button>
         );
       })}
@@ -216,9 +228,9 @@ function WeatherOverrideSection({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const conditions = [
-    { value: 'sunny', icon: <Sun className="h-4 w-4" />, label: 'Sunny' },
-    { value: 'cloudy', icon: <Cloud className="h-4 w-4" />, label: 'Cloudy' },
-    { value: 'rainy', icon: <CloudRain className="h-4 w-4" />, label: 'Rainy' },
+    { value: 'sunny', icon: <Sun className="h-4 w-4" />, label: '晴' },
+    { value: 'cloudy', icon: <Cloud className="h-4 w-4" />, label: '多云' },
+    { value: 'rainy', icon: <CloudRain className="h-4 w-4" />, label: '雨' },
   ] as const;
 
   return (
@@ -226,10 +238,11 @@ function WeatherOverrideSection({
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
-          <span>{weather ? 'Weather override active' : 'Override weather'}</span>
+          <span>{weather ? '已使用自定义天气' : '自定义天气'}</span>
           {weather && (
             <Badge variant="secondary" className="text-xs">
-              {weather.condition} {formatTemp(weather.temperature, temperatureUnit)}
+              {conditions.find((c) => c.value === weather.condition)?.label || weather.condition}{' '}
+              {formatTemp(weather.temperature, temperatureUnit)}
             </Badge>
           )}
         </button>
@@ -237,10 +250,10 @@ function WeatherOverrideSection({
       <CollapsibleContent className="pt-4">
         <div className="space-y-4 p-4 rounded-lg bg-muted/50">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Condition</span>
+            <span className="text-sm font-medium">天气</span>
             {weather && (
               <Button variant="ghost" size="sm" onClick={() => onChange(null)}>
-                Reset
+                重置
               </Button>
             )}
           </div>
@@ -268,7 +281,7 @@ function WeatherOverrideSection({
           </div>
           {weather && (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">Temperature</span>
+              <span className="text-sm text-muted-foreground">温度</span>
               <input
                 type="range"
                 min={temperatureUnit === 'fahrenheit' ? 14 : -10}
@@ -312,7 +325,7 @@ function OutfitResult({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="capitalize text-sm px-3 py-1">
-            {occasion}
+            {OCCASION_ZH[occasion] || occasion}
           </Badge>
           {outfit.scheduled_for && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -322,7 +335,7 @@ function OutfitResult({
           )}
         </div>
         <Button variant="ghost" size="sm" onClick={onNewRequest}>
-          Start over
+          重新开始
         </Button>
       </div>
 
@@ -332,14 +345,16 @@ function OutfitResult({
           <div className="flex items-center gap-1.5">
             <Thermometer className="h-4 w-4" />
             <span>{formatTemp(outfit.weather.temperature, temperatureUnit)}</span>
-            <span className="text-xs opacity-70">(feels {displayValue(outfit.weather.feels_like, temperatureUnit)}°)</span>
+            <span className="text-xs opacity-70">
+              （体感 {displayValue(outfit.weather.feels_like, temperatureUnit)}°）
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <Droplets className="h-4 w-4" />
-            <span>{outfit.weather.precipitation_chance}% rain</span>
+            <span>降雨 {outfit.weather.precipitation_chance}%</span>
           </div>
-          <Badge variant="outline" className="capitalize">
-            {outfit.weather.condition}
+          <Badge variant="outline">
+            {weatherConditionZh(outfit.weather.condition)}
           </Badge>
         </div>
       )}
@@ -349,7 +364,7 @@ function OutfitResult({
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 border-b">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Your Outfit</h3>
+            <h3 className="font-semibold">你的穿搭</h3>
           </div>
           {outfit.reasoning && (
             <p className="mt-2 text-base font-medium text-foreground">{outfit.reasoning}</p>
@@ -390,11 +405,11 @@ function OutfitResult({
                 </div>
                 <div className="p-2.5">
                   <p className="text-sm font-medium truncate">
-                    {item.name || item.type}
+                    {itemTitleZh(item)}
                   </p>
                   {item.layer_type && (
-                    <Badge variant="secondary" className="text-xs capitalize mt-1">
-                      {item.layer_type}
+                    <Badge variant="secondary" className="text-xs mt-1">
+                      {TYPE_ZH[item.layer_type] || item.layer_type}
                     </Badge>
                   )}
                 </div>
@@ -405,7 +420,7 @@ function OutfitResult({
           {outfit.style_notes && (
             <div className="mt-4 p-3 bg-muted rounded-lg border">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Tip:</span> {outfit.style_notes}
+                <span className="font-medium text-foreground">提示：</span> {outfit.style_notes}
               </p>
             </div>
           )}
@@ -416,11 +431,11 @@ function OutfitResult({
       <div className="flex gap-3 justify-center">
         <Button variant="outline" size="lg" onClick={onTryAnother} className="gap-2">
           <RefreshCw className="h-4 w-4" />
-          Try Another
+          换一套
         </Button>
         <Button size="lg" onClick={onAccept} className="gap-2">
           <ThumbsUp className="h-4 w-4" />
-          Love it
+          喜欢
         </Button>
         <Button variant="ghost" size="lg" onClick={onReject} className="px-3">
           <ThumbsDown className="h-4 w-4" />
@@ -480,7 +495,7 @@ export default function SuggestPage() {
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError('Failed to generate outfit suggestion. Please try again.');
+        setError('生成穿搭建议失败，请重试');
       }
       console.error('Suggestion error:', err);
     } finally {
@@ -538,7 +553,7 @@ export default function SuggestPage() {
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{getGreeting()}</h1>
         <p className="text-muted-foreground">
-          Let&apos;s find the perfect outfit for your day
+          一起为今天找到合适的穿搭
         </p>
       </div>
 
@@ -556,10 +571,10 @@ export default function SuggestPage() {
 
           {/* Main selection card */}
           <Card>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-4 space-y-5 sm:p-6 sm:space-y-6">
               {/* Occasion selection */}
               <div className="space-y-3">
-                <h2 className="font-semibold">What&apos;s the occasion?</h2>
+                <h2 className="font-semibold">今天是什么场景？</h2>
                 <OccasionChips
                   selected={selectedOccasion}
                   onSelect={setSelectedOccasion}
@@ -584,12 +599,12 @@ export default function SuggestPage() {
                   {isGenerating ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      Creating your look...
+                      正在生成穿搭...
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-5 w-5" />
-                      Get Suggestion
+                      获取建议
                     </>
                   )}
                 </Button>

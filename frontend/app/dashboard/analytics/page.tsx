@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useAnalytics } from '@/lib/hooks/use-analytics';
+import { COLOR_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -127,7 +128,7 @@ function ColorBar({ color, percentage }: { color: string; percentage: number }) 
       <div className={`w-4 h-4 rounded ${bgColor}`} />
       <div className="flex-1">
         <div className="flex justify-between text-sm mb-1">
-          <span className="capitalize">{color}</span>
+          <span>{COLOR_ZH[color] || color}</span>
           <span className="text-muted-foreground">{percentage.toFixed(1)}%</span>
         </div>
         <Progress value={percentage} className="h-2" />
@@ -158,10 +159,10 @@ function ItemCard({ item }: { item: { id: string; name: string | null; type: str
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{item.name || item.type}</p>
-        <p className="text-sm text-muted-foreground capitalize">{item.type}</p>
+        <p className="font-medium truncate">{item.name || TYPE_ZH[item.type] || item.type}</p>
+        <p className="text-sm text-muted-foreground">{TYPE_ZH[item.type] || item.type}</p>
       </div>
-      <Badge variant="secondary">{item.wear_count}x</Badge>
+      <Badge variant="secondary">{item.wear_count} 次</Badge>
     </Link>
   );
 }
@@ -201,8 +202,8 @@ export default function AnalyticsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground">Your wardrobe insights and statistics</p>
+          <h1 className="text-2xl font-bold tracking-tight">统计</h1>
+          <p className="text-muted-foreground">你的衣橱洞察和数据</p>
         </div>
         <LoadingSkeleton />
       </div>
@@ -212,7 +213,7 @@ export default function AnalyticsPage() {
   if (isError || !data) {
     return (
       <div className="text-center py-8 text-red-500">
-        Failed to load analytics. Please try again.
+        加载统计失败，请重试。
       </div>
     );
   }
@@ -222,35 +223,35 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground">Your wardrobe insights and statistics</p>
+        <h1 className="text-2xl font-bold tracking-tight">统计</h1>
+        <p className="text-muted-foreground">你的衣橱洞察和数据</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Items"
+          title="衣物总数"
           value={wardrobe.total_items}
-          description={`${wardrobe.items_by_status.ready} ready to wear`}
+          description={`${wardrobe.items_by_status.ready} 件可穿`}
           icon={Shirt}
         />
         <StatCard
-          title="Outfits Generated"
+          title="已生成穿搭"
           value={wardrobe.total_outfits}
-          description={`${wardrobe.outfits_this_week} this week`}
+          description={`本周 ${wardrobe.outfits_this_week} 套`}
           icon={Sparkles}
         />
         <StatCard
-          title="Acceptance Rate"
+          title="接受率"
           value={wardrobe.acceptance_rate ? `${wardrobe.acceptance_rate}%` : '-'}
-          description={wardrobe.acceptance_rate ? 'of suggestions accepted' : 'No data yet'}
+          description={wardrobe.acceptance_rate ? '建议被接受' : '暂无数据'}
           icon={TrendingUp}
           trend={wardrobe.acceptance_rate && wardrobe.acceptance_rate > 50 ? 'up' : undefined}
         />
         <StatCard
-          title="Total Wears"
+          title="穿着次数"
           value={wardrobe.total_wears}
-          description={wardrobe.average_rating ? `Avg rating: ${wardrobe.average_rating}/5` : 'Track your outfits'}
+          description={wardrobe.average_rating ? `平均评分：${wardrobe.average_rating}/5` : '记录你的穿搭'}
           icon={Activity}
         />
       </div>
@@ -261,7 +262,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lightbulb className="h-5 w-5" />
-              Insights
+              洞察
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -283,13 +284,13 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
-              Color Distribution
+              颜色分布
             </CardTitle>
-            <CardDescription>Most common colors in your wardrobe</CardDescription>
+            <CardDescription>衣橱中最常见的颜色</CardDescription>
           </CardHeader>
           <CardContent>
             {color_distribution.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No color data yet</p>
+              <p className="text-muted-foreground text-sm">暂无颜色数据</p>
             ) : (
               <div className="space-y-3">
                 {color_distribution.slice(0, 8).map((color) => (
@@ -305,18 +306,18 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart className="h-5 w-5" />
-              Item Types
+              衣物品类
             </CardTitle>
-            <CardDescription>Breakdown by clothing type</CardDescription>
+            <CardDescription>按衣物品类统计</CardDescription>
           </CardHeader>
           <CardContent>
             {type_distribution.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No items yet</p>
+              <p className="text-muted-foreground text-sm">暂无衣物</p>
             ) : (
               <div className="space-y-3">
                 {type_distribution.map((type) => (
                   <div key={type.type} className="flex items-center justify-between">
-                    <span className="capitalize">{type.type}</span>
+                    <span>{TYPE_ZH[type.type] || type.type}</span>
                     <div className="flex items-center gap-2">
                       <Progress value={type.percentage} className="w-24 h-2" />
                       <span className="text-sm text-muted-foreground w-12 text-right">
@@ -335,12 +336,12 @@ export default function AnalyticsPage() {
         {/* Most Worn */}
         <Card>
           <CardHeader>
-            <CardTitle>Most Worn</CardTitle>
-            <CardDescription>Your favorites</CardDescription>
+            <CardTitle>最常穿</CardTitle>
+            <CardDescription>你的常用衣物</CardDescription>
           </CardHeader>
           <CardContent>
             {most_worn.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Start tracking your outfits!</p>
+              <p className="text-muted-foreground text-sm">开始记录穿搭后会显示。</p>
             ) : (
               <div className="space-y-1">
                 {most_worn.map((item) => (
@@ -354,12 +355,12 @@ export default function AnalyticsPage() {
         {/* Least Worn */}
         <Card>
           <CardHeader>
-            <CardTitle>Least Worn</CardTitle>
-            <CardDescription>Consider wearing these</CardDescription>
+            <CardTitle>较少穿</CardTitle>
+            <CardDescription>可以多尝试这些</CardDescription>
           </CardHeader>
           <CardContent>
             {least_worn.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Keep tracking!</p>
+              <p className="text-muted-foreground text-sm">继续记录后会更准确。</p>
             ) : (
               <div className="space-y-1">
                 {least_worn.map((item) => (
@@ -373,12 +374,12 @@ export default function AnalyticsPage() {
         {/* Never Worn */}
         <Card>
           <CardHeader>
-            <CardTitle>Never Worn</CardTitle>
-            <CardDescription>Time to try these?</CardDescription>
+            <CardTitle>未穿过</CardTitle>
+            <CardDescription>可以找机会试试</CardDescription>
           </CardHeader>
           <CardContent>
             {never_worn.length === 0 ? (
-              <p className="text-muted-foreground text-sm">All items have been worn!</p>
+              <p className="text-muted-foreground text-sm">所有衣物都已经穿过。</p>
             ) : (
               <div className="space-y-1">
                 {never_worn.map((item) => (
@@ -394,8 +395,8 @@ export default function AnalyticsPage() {
       {acceptance_trend.length > 0 && acceptance_trend.some((t) => t.total > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle>Acceptance Rate Trend</CardTitle>
-            <CardDescription>How you&apos;ve responded to suggestions over time</CardDescription>
+            <CardTitle>接受率趋势</CardTitle>
+            <CardDescription>你对穿搭建议的反馈变化</CardDescription>
           </CardHeader>
           <CardContent>
             <AcceptanceTrendChart data={acceptance_trend} />

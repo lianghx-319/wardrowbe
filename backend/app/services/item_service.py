@@ -3,12 +3,17 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes, selectinload
 
-from app.models.item import ClothingItem, ItemHistory, ItemStatus, WashHistory
+from app.models.item import ClothingItem, ImageSource, ItemHistory, ItemStatus, WashHistory
 from app.schemas.item import DEFAULT_WASH_INTERVALS, ItemCreate, ItemFilter, ItemUpdate
+from app.utils.zh_labels import expand_search_terms
+
+
+def should_use_immich_search(search: str) -> bool:
+    return any(ord(char) > 127 for char in search)
 
 
 class ItemService:
@@ -72,15 +77,8 @@ class ItemService:
 
         # Search filter
         if filters.search:
-            search_term = f"%{filters.search}%"
-            query = query.where(
-                or_(
-                    ClothingItem.name.ilike(search_term),
-                    ClothingItem.brand.ilike(search_term),
-                    ClothingItem.type.ilike(search_term),
-                    ClothingItem.notes.ilike(search_term),
-                )
-            )
+            conditions = await self._build_search_conditions(user_id, filters.search)
+            query = query.where(or_(*conditions))
 
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
@@ -107,6 +105,43 @@ class ItemService:
 
         return items, total
 
+    async def _build_search_conditions(self, user_id: UUID, search: str) -> list:
+        conditions = []
+        for term in expand_search_terms(search):
+            search_term = f"%{term}%"
+            conditions.extend(
+                [
+                    ClothingItem.name.ilike(search_term),
+                    ClothingItem.brand.ilike(search_term),
+                    ClothingItem.type.ilike(search_term),
+                    ClothingItem.subtype.ilike(search_term),
+                    ClothingItem.primary_color.ilike(search_term),
+                    ClothingItem.pattern.ilike(search_term),
+                    ClothingItem.material.ilike(search_term),
+                    ClothingItem.notes.ilike(search_term),
+                    ClothingItem.ai_description.ilike(search_term),
+                    ClothingItem.ai_description_zh.ilike(search_term),
+                    ClothingItem.immich_original_filename.ilike(search_term),
+                    ClothingItem.tags.cast(String).ilike(search_term),
+                    ClothingItem.tags_zh.cast(String).ilike(search_term),
+                ]
+            )
+
+        if should_use_immich_search(search):
+            asset_ids = await self._get_immich_search_asset_ids(user_id, search)
+            if asset_ids:
+                conditions.append(ClothingItem.immich_asset_id.in_(asset_ids))
+
+        return conditions
+
+    async def _get_immich_search_asset_ids(self, user_id: UUID, search: str) -> list[str]:
+        try:
+            from app.services.immich_service import search_imported_asset_ids
+
+            return await search_imported_asset_ids(self.db, user_id, search)
+        except Exception:
+            return []
+
     async def get_ids_by_filter(
         self,
         user_id: UUID,
@@ -123,15 +158,8 @@ class ItemService:
         query = query.where(ClothingItem.is_archived == is_archived)
 
         if search:
-            search_term = f"%{search}%"
-            query = query.where(
-                or_(
-                    ClothingItem.name.ilike(search_term),
-                    ClothingItem.brand.ilike(search_term),
-                    ClothingItem.type.ilike(search_term),
-                    ClothingItem.notes.ilike(search_term),
-                )
-            )
+            conditions = await self._build_search_conditions(user_id, search)
+            query = query.where(or_(*conditions))
 
         if excluded_ids:
             query = query.where(ClothingItem.id.notin_(excluded_ids))
@@ -151,6 +179,42 @@ class ItemService:
                 and_(
                     ClothingItem.user_id == user_id,
                     ClothingItem.image_hash == image_hash,
+                    ClothingItem.is_archived.is_(False),
+                )
+            )
+        )
+        exact = result.scalar_one_or_none()
+        if exact:
+            return exact
+
+        from app.services.image_service import ImageService
+
+        result = await self.db.execute(
+            select(ClothingItem).where(
+                and_(
+                    ClothingItem.user_id == user_id,
+                    ClothingItem.image_hash.is_not(None),
+                    ClothingItem.is_archived.is_(False),
+                )
+            )
+        )
+        for item in result.scalars().all():
+            try:
+                if item.image_hash and ImageService.is_duplicate(image_hash, item.image_hash, threshold):
+                    return item
+            except Exception:
+                continue
+        return None
+
+    async def find_by_immich_asset(
+        self, user_id: UUID, connection_id: UUID, asset_id: str
+    ) -> ClothingItem | None:
+        result = await self.db.execute(
+            select(ClothingItem).where(
+                and_(
+                    ClothingItem.user_id == user_id,
+                    ClothingItem.immich_connection_id == connection_id,
+                    ClothingItem.immich_asset_id == asset_id,
                     ClothingItem.is_archived.is_(False),
                 )
             )
@@ -189,6 +253,37 @@ class ItemService:
             favorite=item_data.favorite,
         )
 
+        self.db.add(item)
+        await self.db.flush()
+        await self.db.refresh(item, ["additional_images"])
+        return item
+
+    async def create_immich_item(
+        self,
+        user_id: UUID,
+        connection_id: UUID,
+        asset_id: str,
+        image_hash: str | None,
+        original_filename: str | None,
+        checksum: str | None = None,
+    ) -> ClothingItem:
+        item = ClothingItem(
+            user_id=user_id,
+            image_path=None,
+            thumbnail_path=None,
+            medium_path=None,
+            image_hash=image_hash,
+            image_source=ImageSource.immich,
+            immich_connection_id=connection_id,
+            immich_asset_id=asset_id,
+            immich_checksum=checksum,
+            immich_original_filename=original_filename,
+            type="unknown",
+            tags={},
+            colors=[],
+            status=ItemStatus.processing,
+            name=original_filename.rsplit(".", 1)[0] if original_filename else None,
+        )
         self.db.add(item)
         await self.db.flush()
         await self.db.refresh(item, ["additional_images"])

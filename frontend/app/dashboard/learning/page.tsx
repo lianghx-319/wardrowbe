@@ -32,6 +32,30 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { COLOR_ZH, OCCASION_ZH, STYLE_ZH, TYPE_ZH } from '@/lib/zh-labels';
+
+const INSIGHT_CATEGORY_ZH: Record<string, string> = {
+  color: '颜色',
+  style: '风格',
+  overall: '整体',
+  weather: '天气',
+  occasion: '场景',
+};
+
+const WEATHER_TYPE_ZH: Record<string, string> = {
+  cold: '寒冷',
+  cool: '偏凉',
+  mild: '温和',
+  hot: '炎热',
+};
+
+function colorZh(color: string) {
+  return COLOR_ZH[color] || color;
+}
+
+function styleZh(style: string) {
+  return STYLE_ZH[style] || style;
+}
 
 function StatCard({
   title,
@@ -144,7 +168,7 @@ function ColorPreferenceBar({ colorScore }: { colorScore: LearnedColorScore }) {
       <div className={`w-4 h-4 rounded ${bgColor}`} />
       <div className="flex-1">
         <div className="flex justify-between text-sm mb-1">
-          <span className="capitalize">{colorScore.color}</span>
+          <span>{colorZh(colorScore.color)}</span>
           <span className="text-muted-foreground flex items-center gap-1">
             {isPositive ? (
               <ThumbsUp className="h-3 w-3 text-green-500" />
@@ -223,7 +247,7 @@ function ItemPairCard({ pair }: { pair: ItemPair }) {
           <span className="font-medium">{successRate}%</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          {pair.times_paired}x paired
+          搭配 {pair.times_paired} 次
         </div>
       </div>
     </div>
@@ -260,7 +284,7 @@ function InsightCard({
       <button
         onClick={() => onAcknowledge(insight.id)}
         className="absolute top-2 right-2 p-1 rounded hover:bg-muted transition-colors"
-        title="Dismiss"
+        title="忽略"
       >
         <X className="h-4 w-4 text-muted-foreground" />
       </button>
@@ -271,10 +295,10 @@ function InsightCard({
           <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="outline" className="text-xs">
-              {insight.category}
+              {INSIGHT_CATEGORY_ZH[insight.category] || insight.category}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              {Math.round(insight.confidence * 100)}% confidence
+              置信度 {Math.round(insight.confidence * 100)}%
             </span>
           </div>
         </div>
@@ -288,16 +312,15 @@ function NoLearningData({ onRecompute, isRefreshing }: { onRecompute: () => void
     <Card className="col-span-full">
       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
         <Brain className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No Learning Data Yet</h3>
+        <h3 className="text-lg font-semibold mb-2">还没有学习数据</h3>
         <p className="text-muted-foreground max-w-md mb-4">
-          Start by accepting or rejecting outfit suggestions and rating them.
-          The AI will learn from your feedback to make better recommendations.
+          先对穿搭建议进行接受、拒绝或评分。AI 会从你的反馈中学习，逐步给出更合适的推荐。
         </p>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Link href="/dashboard/suggest" className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto">
               <Sparkles className="h-4 w-4 mr-2" />
-              Get Outfit Suggestions
+              获取穿搭建议
             </Button>
           </Link>
           <Button
@@ -307,11 +330,11 @@ function NoLearningData({ onRecompute, isRefreshing }: { onRecompute: () => void
             className="w-full sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Computing...' : 'Compute Now'}
+            {isRefreshing ? '正在计算...' : '立即计算'}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-4">
-          Already gave feedback? Click &quot;Compute Now&quot; to process it.
+          已经给过反馈？点击“立即计算”来更新学习结果。
         </p>
       </CardContent>
     </Card>
@@ -347,8 +370,8 @@ export default function LearningPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">AI Learning</h1>
-            <p className="text-muted-foreground">How the AI learns from your feedback</p>
+            <h1 className="text-2xl font-bold tracking-tight">AI 学习</h1>
+            <p className="text-muted-foreground">AI 如何从你的反馈中学习</p>
           </div>
         </div>
         <LoadingSkeleton />
@@ -359,7 +382,7 @@ export default function LearningPage() {
   if (isError || !data) {
     return (
       <div className="text-center py-8 text-red-500">
-        Failed to load learning data. Please try again.
+        加载学习数据失败，请重试。
       </div>
     );
   }
@@ -370,11 +393,11 @@ export default function LearningPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">AI Learning</h1>
+          <h1 className="text-2xl font-bold tracking-tight">AI 学习</h1>
           <p className="text-muted-foreground">
             {profile.has_learning_data
-              ? 'The AI learns from your feedback to improve recommendations'
-              : 'Start rating outfits to help the AI learn your preferences'}
+              ? 'AI 会根据你的反馈持续改进推荐'
+              : '开始给穿搭评分，帮助 AI 学习你的偏好'}
           </p>
         </div>
         {profile.has_learning_data && (
@@ -384,7 +407,7 @@ export default function LearningPage() {
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Recompute
+            重新计算
           </Button>
         )}
       </div>
@@ -396,32 +419,32 @@ export default function LearningPage() {
           {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              title="Feedback Given"
+              title="已提交反馈"
               value={profile.feedback_count}
-              description={`${profile.outfits_rated} outfits rated`}
+              description={`已评分 ${profile.outfits_rated} 套穿搭`}
               icon={Activity}
             />
             <StatCard
-              title="Acceptance Rate"
+              title="接受率"
               value={profile.overall_acceptance_rate
                 ? `${Math.round(profile.overall_acceptance_rate * 100)}%`
                 : '-'}
               description={profile.overall_acceptance_rate
-                ? 'of suggestions accepted'
-                : 'Not enough data'}
+                ? '建议被接受'
+                : '数据还不够'}
               icon={TrendingUp}
               trend={profile.overall_acceptance_rate && profile.overall_acceptance_rate > 0.5 ? 'up' : undefined}
             />
             <StatCard
-              title="Average Rating"
+              title="平均评分"
               value={profile.average_rating ? profile.average_rating.toFixed(1) : '-'}
-              description={profile.average_rating ? 'out of 5 stars' : 'Rate more outfits'}
+              description={profile.average_rating ? '满分 5 星' : '多给几套穿搭评分'}
               icon={Sparkles}
             />
             <StatCard
-              title="Style Rating"
+              title="风格评分"
               value={profile.average_style_rating ? profile.average_style_rating.toFixed(1) : '-'}
-              description={profile.average_style_rating ? 'style satisfaction' : 'Rate outfit styles'}
+              description={profile.average_style_rating ? '风格满意度' : '继续评价穿搭风格'}
               icon={Heart}
             />
           </div>
@@ -433,13 +456,13 @@ export default function LearningPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5" />
-                    Style Insights
+                    风格洞察
                   </CardTitle>
-                  <CardDescription>What we&apos;ve learned about your preferences</CardDescription>
+                  <CardDescription>从你的反馈中学到的偏好</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
                   <RefreshCw className="h-4 w-4 mr-1" />
-                  New Insights
+                  新洞察
                 </Button>
               </CardHeader>
               <CardContent>
@@ -462,14 +485,14 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5" />
-                  Learned Color Preferences
+                  已学习的颜色偏好
                 </CardTitle>
-                <CardDescription>Colors you tend to accept or reject</CardDescription>
+                <CardDescription>你更容易接受或拒绝的颜色</CardDescription>
               </CardHeader>
               <CardContent>
                 {profile.color_preferences.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    Not enough feedback to determine color preferences yet.
+                    反馈还不够，暂时无法判断颜色偏好。
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -486,14 +509,14 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Heart className="h-5 w-5" />
-                  Learned Style Preferences
+                  已学习的风格偏好
                 </CardTitle>
-                <CardDescription>Styles that match your taste</CardDescription>
+                <CardDescription>更符合你口味的风格</CardDescription>
               </CardHeader>
               <CardContent>
                 {profile.style_preferences.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    Not enough feedback to determine style preferences yet.
+                    反馈还不够，暂时无法判断风格偏好。
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -502,7 +525,7 @@ export default function LearningPage() {
                       const percentage = Math.abs(styleScore.score) * 100;
                       return (
                         <div key={styleScore.style} className="flex items-center justify-between">
-                          <span className="capitalize">{styleScore.style}</span>
+                          <span>{styleZh(styleScore.style)}</span>
                           <div className="flex items-center gap-2">
                             <Progress
                               value={percentage}
@@ -527,9 +550,9 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Heart className="h-5 w-5 text-red-500" />
-                  Your Best Combinations
+                  你最喜欢的组合
                 </CardTitle>
-                <CardDescription>Item pairs that you consistently love together</CardDescription>
+                <CardDescription>你多次接受的衣物搭配</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -547,23 +570,25 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Occasion Patterns
+                  场景规律
                 </CardTitle>
-                <CardDescription>What works for different occasions</CardDescription>
+                <CardDescription>不同场景下更适合你的搭配</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {profile.occasion_patterns.map((pattern) => (
                     <div key={pattern.occasion} className="p-4 rounded-lg bg-muted/50">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium capitalize">{pattern.occasion}</h4>
+                        <h4 className="font-medium">
+                          {OCCASION_ZH[pattern.occasion] || pattern.occasion}
+                        </h4>
                         <Badge variant="outline">
-                          {Math.round(pattern.success_rate * 100)}% success
+                          成功率 {Math.round(pattern.success_rate * 100)}%
                         </Badge>
                       </div>
                       {pattern.preferred_colors.length > 0 && (
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">Preferred colors:</span>
+                          <span className="text-xs text-muted-foreground">偏好颜色：</span>
                           <div className="flex gap-1">
                             {pattern.preferred_colors.map((color) => (
                               <div
@@ -588,9 +613,9 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Cloud className="h-5 w-5" />
-                  Weather Preferences
+                  天气偏好
                 </CardTitle>
-                <CardDescription>How you dress for different conditions</CardDescription>
+                <CardDescription>不同天气下你的穿衣习惯</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -602,12 +627,14 @@ export default function LearningPage() {
                         {pref.weather_type === 'mild' && '🌤️'}
                         {pref.weather_type === 'hot' && '☀️'}
                       </div>
-                      <h4 className="font-medium capitalize">{pref.weather_type}</h4>
+                      <h4 className="font-medium">
+                        {WEATHER_TYPE_ZH[pref.weather_type] || pref.weather_type}
+                      </h4>
                       <p className="text-sm text-muted-foreground mt-1">
-                        ~{pref.preferred_layers.toFixed(1)} layers
+                        约 {pref.preferred_layers.toFixed(1)} 层
                       </p>
                       <Badge variant="outline" className="mt-2">
-                        {Math.round(pref.success_rate * 100)}% success
+                        成功率 {Math.round(pref.success_rate * 100)}%
                       </Badge>
                     </div>
                   ))}
@@ -622,22 +649,22 @@ export default function LearningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Lightbulb className="h-5 w-5 text-primary" />
-                  Suggested Preference Updates
+                  建议更新偏好
                 </CardTitle>
                 <CardDescription>
-                  Based on your feedback, we suggest updating your preferences
+                  根据你的反馈，建议同步更新偏好设置
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {preference_suggestions.suggestions.suggested_favorite_colors && (
                     <div className="flex items-center gap-3">
-                      <span className="text-sm">Add to favorite colors:</span>
+                      <span className="text-sm">加入喜欢的颜色：</span>
                       <div className="flex gap-2">
                         {preference_suggestions.suggestions.suggested_favorite_colors.map((color) => (
                           <Badge key={color} variant="secondary" className="capitalize">
                             <div className={`w-3 h-3 rounded mr-1 ${colorMap[color.toLowerCase()] || 'bg-muted'}`} />
-                            {color}
+                            {colorZh(color)}
                           </Badge>
                         ))}
                       </div>
@@ -645,12 +672,12 @@ export default function LearningPage() {
                   )}
                   {preference_suggestions.suggestions.suggested_avoid_colors && (
                     <div className="flex items-center gap-3">
-                      <span className="text-sm">Add to colors to avoid:</span>
+                      <span className="text-sm">加入避免的颜色：</span>
                       <div className="flex gap-2">
                         {preference_suggestions.suggestions.suggested_avoid_colors.map((color) => (
                           <Badge key={color} variant="destructive" className="capitalize">
                             <div className={`w-3 h-3 rounded mr-1 ${colorMap[color.toLowerCase()] || 'bg-muted'}`} />
-                            {color}
+                            {colorZh(color)}
                           </Badge>
                         ))}
                       </div>
@@ -660,7 +687,7 @@ export default function LearningPage() {
                 <div className="mt-4">
                   <Link href="/dashboard/settings">
                     <Button variant="outline" size="sm">
-                      Update Preferences
+                      更新偏好
                     </Button>
                   </Link>
                 </div>
@@ -671,7 +698,7 @@ export default function LearningPage() {
           {/* Last Updated */}
           {profile.last_computed_at && (
             <p className="text-xs text-muted-foreground text-center">
-              Learning profile last updated: {new Date(profile.last_computed_at).toLocaleString()}
+              学习画像最后更新：{new Date(profile.last_computed_at).toLocaleString()}
             </p>
           )}
         </>

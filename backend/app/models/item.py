@@ -33,6 +33,11 @@ class ItemStatus(enum.StrEnum):
     archived = "archived"
 
 
+class ImageSource(enum.StrEnum):
+    local = "local"
+    immich = "immich"
+
+
 class ClothingItem(Base):
     __tablename__ = "clothing_items"
 
@@ -41,11 +46,20 @@ class ClothingItem(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Image paths
-    image_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Image paths / external source metadata
+    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     thumbnail_path: Mapped[str | None] = mapped_column(String(500))
     medium_path: Mapped[str | None] = mapped_column(String(500))
     image_hash: Mapped[str | None] = mapped_column(String(16), index=True)  # pHash hex string
+    image_source: Mapped[ImageSource] = mapped_column(
+        Enum(ImageSource, name="image_source"), default=ImageSource.local, nullable=False
+    )
+    immich_connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("immich_connections.id", ondelete="SET NULL"), index=True
+    )
+    immich_asset_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    immich_checksum: Mapped[str | None] = mapped_column(String(128), index=True)
+    immich_original_filename: Mapped[str | None] = mapped_column(String(500))
 
     # Classification
     type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -84,6 +98,8 @@ class ClothingItem(Base):
 
     # AI description (human-readable caption)
     ai_description: Mapped[str | None] = mapped_column(Text)
+    ai_description_zh: Mapped[str | None] = mapped_column(Text)
+    tags_zh: Mapped[dict | None] = mapped_column(JSONB)
 
     # User metadata
     name: Mapped[str | None] = mapped_column(String(100))
@@ -116,6 +132,45 @@ class ClothingItem(Base):
         back_populates="item",
         cascade="all, delete-orphan",
         order_by="ItemImage.position",
+    )
+    immich_connection: Mapped["ImmichConnection | None"] = relationship(
+        "ImmichConnection", back_populates="items"
+    )
+
+
+class ImmichConnectionStatus(enum.StrEnum):
+    connected = "connected"
+    error = "error"
+
+
+class ImmichConnection(Base):
+    __tablename__ = "immich_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+
+    base_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    api_key_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    album_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    album_name: Mapped[str] = mapped_column(String(255), nullable=False, default="wardrowbe")
+    status: Mapped[ImmichConnectionStatus] = mapped_column(
+        Enum(ImmichConnectionStatus, name="immich_connection_status"),
+        default=ImmichConnectionStatus.connected,
+        nullable=False,
+    )
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped["User"] = relationship("User")
+    items: Mapped[list["ClothingItem"]] = relationship(
+        "ClothingItem", back_populates="immich_connection"
     )
 
 

@@ -89,11 +89,11 @@ const CHIP_ORDER: FilterChip[] = [
 ];
 
 const CHIP_LABELS: Record<FilterChip, string> = {
-  all: 'All',
-  'my-looks': 'My Looks',
-  worn: 'Worn',
-  pairings: 'Pairings',
-  replacements: 'Replacements',
+  all: '全部',
+  'my-looks': '我的造型',
+  worn: '已穿',
+  pairings: '搭配',
+  replacements: '替换',
   ai: 'AI',
 };
 
@@ -124,12 +124,12 @@ function chipToFilters(chip: FilterChip, search: string): OutfitFilters {
 }
 
 const EMPTY_MESSAGES: Record<FilterChip, string> = {
-  all: 'No outfits yet. Create your first look in the Studio!',
-  'my-looks': 'No saved looks yet. Create one with the Studio editor.',
-  worn: 'No worn outfits recorded.',
-  pairings: 'No pairing outfits generated.',
-  replacements: 'No replacement outfits.',
-  ai: 'No AI-generated outfits.',
+  all: '还没有穿搭。先创建第一套造型吧。',
+  'my-looks': '还没有保存的造型，可以用编辑器创建一套。',
+  worn: '还没有记录已穿穿搭。',
+  pairings: '还没有生成搭配穿搭。',
+  replacements: '还没有替换穿搭。',
+  ai: '还没有 AI 生成的穿搭。',
 };
 
 function OutfitsPageContent() {
@@ -293,14 +293,14 @@ function OutfitsPageContent() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Outfits</h1>
-          <p className="text-muted-foreground">Your looks, worn outfits, and AI suggestions</p>
+          <h1 className="text-2xl font-bold tracking-tight">穿搭</h1>
+          <p className="text-muted-foreground">你的造型、已穿记录和 AI 建议</p>
         </div>
         <div className="flex items-center gap-3">
           <div
             className="inline-flex rounded-full border-2 border-muted overflow-hidden"
             role="group"
-            aria-label="View toggle"
+            aria-label="视图切换"
           >
             <button
               type="button"
@@ -314,7 +314,7 @@ function OutfitsPageContent() {
               )}
             >
               <ListIcon className="h-3.5 w-3.5" />
-              List
+              列表
             </button>
             <button
               type="button"
@@ -328,13 +328,13 @@ function OutfitsPageContent() {
               )}
             >
               <CalendarDays className="h-3.5 w-3.5" />
-              Calendar
+              日历
             </button>
           </div>
           <Button asChild>
             <Link href="/dashboard/outfits/new">
               <Plus className="h-4 w-4 mr-2" />
-              New Outfit
+              新建穿搭
             </Link>
           </Button>
         </div>
@@ -364,7 +364,7 @@ function OutfitsPageContent() {
           <div className="relative ml-auto min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search lookbook..."
+              placeholder="搜索造型..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9"
@@ -374,7 +374,7 @@ function OutfitsPageContent() {
 
         {listQuery.data && (
           <Badge variant="outline" className="ml-auto">
-            {listQuery.data.total} total
+            共 {listQuery.data.total} 套
           </Badge>
         )}
       </div>
@@ -383,7 +383,7 @@ function OutfitsPageContent() {
       {view === 'list' ? (
         <>
           {listError ? (
-            <div className="text-center py-8 text-destructive">Failed to load outfits</div>
+            <div className="text-center py-8 text-destructive">加载穿搭失败</div>
           ) : listLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -397,7 +397,7 @@ function OutfitsPageContent() {
                 <Button asChild>
                   <Link href="/dashboard/outfits/new">
                     <Plus className="h-4 w-4 mr-2" />
-                    New Outfit
+                    新建穿搭
                   </Link>
                 </Button>
               )}
@@ -412,7 +412,7 @@ function OutfitsPageContent() {
               {hasMore && (
                 <div className="flex justify-center pt-4">
                   <Button variant="outline" onClick={() => setPage((p) => p + 1)}>
-                    Load more
+                    加载更多
                   </Button>
                 </div>
               )}
@@ -453,7 +453,7 @@ function OutfitsPageContent() {
 
           <div className="space-y-4">
             {calendarError ? (
-              <div className="text-center py-8 text-destructive">Failed to load outfits</div>
+              <div className="text-center py-8 text-destructive">加载穿搭失败</div>
             ) : calendarLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -464,7 +464,7 @@ function OutfitsPageContent() {
               <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                 <CalendarDays className="h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  No outfits on this day
+                  这一天没有穿搭
                 </p>
               </div>
             ) : (
@@ -475,13 +475,13 @@ function OutfitsPageContent() {
                       {formatReadableDate(selectedDate)}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {selectedDayOutfits.length} outfit{selectedDayOutfits.length === 1 ? '' : 's'}
+                      {selectedDayOutfits.length} 套穿搭
                     </p>
                   </div>
                 )}
                 {!selectedDate && (
                   <p className="text-sm text-muted-foreground">
-                    {calendarOutfits.length} outfit{calendarOutfits.length === 1 ? '' : 's'} this month
+                    本月 {calendarOutfits.length} 套穿搭
                   </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -504,7 +504,7 @@ function parseYmd(dateKey: string): Date {
 }
 
 function formatReadableDate(dateKey: string): string {
-  return parseYmd(dateKey).toLocaleDateString(undefined, {
+  return parseYmd(dateKey).toLocaleDateString('zh-CN', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',

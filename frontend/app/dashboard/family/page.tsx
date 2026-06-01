@@ -69,11 +69,11 @@ function NoFamilyView() {
     if (!familyName.trim()) return;
     try {
       await createFamily.mutateAsync(familyName.trim());
-      toast.success('Family created!');
+      toast.success('家庭已创建');
       setFamilyName('');
       setMode(null);
     } catch (error) {
-      toast.error('Failed to create family. Please try again.');
+      toast.error('创建家庭失败，请重试。');
     }
   };
 
@@ -81,20 +81,20 @@ function NoFamilyView() {
     if (!inviteCode.trim()) return;
     try {
       await joinFamily.mutateAsync(inviteCode.trim().toUpperCase());
-      toast.success('Joined family!');
+      toast.success('已加入家庭');
       setInviteCode('');
       setMode(null);
     } catch (error) {
-      toast.error('Invalid invite code. Please check and try again.');
+      toast.error('邀请码无效，请检查后重试。');
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Family</h1>
+        <h1 className="text-2xl font-bold tracking-tight">家庭</h1>
         <p className="text-muted-foreground">
-          Create or join a family to share your wardrobe experience
+          创建或加入家庭，共享衣橱体验
         </p>
       </div>
 
@@ -103,18 +103,18 @@ function NoFamilyView() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Create Family
+              创建家庭
             </CardTitle>
-            <CardDescription>Start a new family and invite members</CardDescription>
+            <CardDescription>创建一个新家庭并邀请成员</CardDescription>
           </CardHeader>
           <CardContent>
             {mode === 'create' ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="family-name">Family Name</Label>
+                  <Label htmlFor="family-name">家庭名称</Label>
                   <Input
                     id="family-name"
-                    placeholder="e.g., The Smith Family"
+                    placeholder="例如：我们的家"
                     value={familyName}
                     onChange={(e) => setFamilyName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
@@ -126,16 +126,16 @@ function NoFamilyView() {
                     disabled={!familyName.trim() || createFamily.isPending}
                   >
                     {createFamily.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create
+                    创建
                   </Button>
                   <Button variant="outline" onClick={() => setMode(null)}>
-                    Cancel
+                    取消
                   </Button>
                 </div>
               </div>
             ) : (
               <Button onClick={() => setMode('create')} className="w-full">
-                Create Family
+                创建家庭
               </Button>
             )}
           </CardContent>
@@ -145,15 +145,15 @@ function NoFamilyView() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Join Family
+              加入家庭
             </CardTitle>
-            <CardDescription>Join an existing family with an invite code</CardDescription>
+            <CardDescription>使用邀请码加入已有家庭</CardDescription>
           </CardHeader>
           <CardContent>
             {mode === 'join' ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="invite-code">Invite Code</Label>
+                  <Label htmlFor="invite-code">邀请码</Label>
                   <Input
                     id="invite-code"
                     placeholder="e.g., ABC123XY"
@@ -169,21 +169,21 @@ function NoFamilyView() {
                     disabled={!inviteCode.trim() || joinFamily.isPending}
                   >
                     {joinFamily.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Join
+                    加入
                   </Button>
                   <Button variant="outline" onClick={() => setMode(null)}>
-                    Cancel
+                    取消
                   </Button>
                 </div>
                 {joinFamily.isError && (
                   <p className="text-sm text-destructive">
-                    Invalid invite code. Please check and try again.
+                    邀请码无效，请检查后重试。
                   </p>
                 )}
               </div>
             ) : (
               <Button onClick={() => setMode('join')} variant="outline" className="w-full">
-                Join Family
+                加入家庭
               </Button>
             )}
           </CardContent>
@@ -236,9 +236,9 @@ function FamilyView() {
   const handleRegenerateCode = async () => {
     try {
       await regenerateCode.mutateAsync();
-      toast.success('New invite code generated!');
+      toast.success('已生成新的邀请码');
     } catch (error) {
-      toast.error('Failed to generate new code. Please try again.');
+      toast.error('生成邀请码失败，请重试。');
     }
   };
 
@@ -246,10 +246,10 @@ function FamilyView() {
     if (!inviteEmail.trim()) return;
     try {
       await inviteMember.mutateAsync({ email: inviteEmail.trim(), role: inviteRole });
-      toast.success('Invitation sent!');
+      toast.success('邀请已发送');
       setInviteEmail('');
     } catch (error) {
-      toast.error('Failed to send invite. Please try again.');
+      toast.error('发送邀请失败，请重试。');
     }
   };
 
@@ -257,11 +257,11 @@ function FamilyView() {
     if (!newName.trim()) return;
     try {
       await updateFamily.mutateAsync(newName.trim());
-      toast.success('Family name updated!');
+      toast.success('家庭名称已更新');
       setEditingName(false);
       setNewName('');
     } catch (error) {
-      toast.error('Failed to update name. Please try again.');
+      toast.error('更新名称失败，请重试。');
     }
   };
 
@@ -280,7 +280,7 @@ function FamilyView() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{family.name}</h1>
           <p className="text-muted-foreground">
-            {family.members.length} member{family.members.length !== 1 ? 's' : ''}
+            {family.members.length} 位成员
           </p>
         </div>
         <div className="flex gap-2">
@@ -292,27 +292,27 @@ function FamilyView() {
                 setEditingName(true);
               }}
             >
-              Edit Name
+              编辑名称
             </Button>
           )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                Leave Family
+                退出家庭
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Leave Family?</AlertDialogTitle>
+                <AlertDialogTitle>退出家庭？</AlertDialogTitle>
                 <AlertDialogDescription>
                   {isAdmin && family.members.length > 1
-                    ? 'You are an admin. Make sure another member is an admin before leaving, or remove all other members first.'
-                    : 'Are you sure you want to leave this family?'}
+                    ? '你是管理员。退出前请确认另一位成员也是管理员，或先移除其他成员。'
+                    : '确定要退出这个家庭吗？'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>取消</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => leaveFamily.mutate()}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -320,7 +320,7 @@ function FamilyView() {
                   {leaveFamily.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  Leave
+                  退出
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -336,15 +336,15 @@ function FamilyView() {
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Family name"
+                placeholder="家庭名称"
                 onKeyDown={(e) => e.key === 'Enter' && handleUpdateName()}
               />
               <Button onClick={handleUpdateName} disabled={updateFamily.isPending}>
                 {updateFamily.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save
+                保存
               </Button>
               <Button variant="outline" onClick={() => setEditingName(false)}>
-                Cancel
+                取消
               </Button>
             </div>
           </CardContent>
@@ -354,8 +354,8 @@ function FamilyView() {
       {/* Invite Code Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite Code</CardTitle>
-          <CardDescription>Share this code with family members to let them join</CardDescription>
+          <CardTitle>邀请码</CardTitle>
+          <CardDescription>将此代码分享给家庭成员，让他们加入</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -387,8 +387,8 @@ function FamilyView() {
       {isAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle>Send Invite</CardTitle>
-            <CardDescription>Invite someone by email</CardDescription>
+            <CardTitle>发送邀请</CardTitle>
+            <CardDescription>通过邮箱邀请成员</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
@@ -407,14 +407,14 @@ function FamilyView() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">成员</SelectItem>
+                  <SelectItem value="admin">管理员</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={handleInvite} disabled={!inviteEmail.trim() || inviteMember.isPending}>
                 {inviteMember.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Mail className="mr-2 h-4 w-4" />
-                Invite
+                邀请
               </Button>
             </div>
           </CardContent>
@@ -424,8 +424,8 @@ function FamilyView() {
       {/* Members List */}
       <Card>
         <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>People in your family</CardDescription>
+          <CardTitle>成员</CardTitle>
+          <CardDescription>你的家庭成员</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -444,13 +444,13 @@ function FamilyView() {
                       <span className="font-medium">{member.display_name}</span>
                       {member.email === currentEmail && (
                         <Badge variant="secondary" className="text-xs">
-                          You
+                          你
                         </Badge>
                       )}
                       {member.role === 'admin' && (
                         <Badge variant="outline" className="text-xs gap-1">
                           <Crown className="h-3 w-3" />
-                          Admin
+                          管理员
                         </Badge>
                       )}
                     </div>
@@ -469,8 +469,8 @@ function FamilyView() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="member">Member</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="member">成员</SelectItem>
+                        <SelectItem value="admin">管理员</SelectItem>
                       </SelectContent>
                     </Select>
                     <AlertDialog>
@@ -481,18 +481,18 @@ function FamilyView() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+                          <AlertDialogTitle>移除成员？</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Remove {member.display_name} from the family?
+                            要将 {member.display_name} 从家庭中移除吗？
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => removeMember.mutate(member.id)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            Remove
+                            移除
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -509,8 +509,8 @@ function FamilyView() {
       {isAdmin && family.pending_invites.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Pending Invites</CardTitle>
-            <CardDescription>Invitations that haven&apos;t been accepted yet</CardDescription>
+            <CardTitle>待接受邀请</CardTitle>
+            <CardDescription>尚未被接受的邀请</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -527,7 +527,7 @@ function FamilyView() {
                       <span className="font-medium">{invite.email}</span>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        Expires {new Date(invite.expires_at).toLocaleDateString()}
+                        到期：{new Date(invite.expires_at).toLocaleDateString('zh-CN')}
                       </div>
                     </div>
                   </div>
@@ -556,15 +556,15 @@ function FamilyView() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shirt className="h-5 w-5" />
-            Family Outfits
+            家庭穿搭
           </CardTitle>
-          <CardDescription>Browse and rate your family members&apos; outfits</CardDescription>
+          <CardDescription>浏览并评价家庭成员的穿搭</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
             <Link href="/dashboard/family/feed">
               <Star className="mr-2 h-4 w-4" />
-              Open Family Feed
+              打开家庭动态
             </Link>
           </Button>
         </CardContent>
