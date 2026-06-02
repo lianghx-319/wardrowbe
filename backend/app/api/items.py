@@ -700,7 +700,7 @@ async def get_item_history(
             "notes": h.notes,
         }
         if h.outfit:
-            from app.utils.signed_urls import sign_image_url
+            from app.utils.signed_urls import sign_item_image_urls
 
             entry["outfit"] = {
                 "id": str(h.outfit.id),
@@ -710,9 +710,7 @@ async def get_item_history(
                         "id": str(oi.item.id),
                         "type": oi.item.type,
                         "name": oi.item.name,
-                        "thumbnail_url": sign_image_url(oi.item.thumbnail_path)
-                        if oi.item.thumbnail_path
-                        else None,
+                        **sign_item_image_urls(oi.item),
                     }
                     for oi in sorted(h.outfit.items, key=lambda x: x.position)
                 ],

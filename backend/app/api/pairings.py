@@ -9,6 +9,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.item import ClothingItem
 from app.models.outfit import Outfit, OutfitSource
 from app.models.user import User
 from app.services.pairing_service import (
@@ -17,7 +18,7 @@ from app.services.pairing_service import (
     PairingService,
 )
 from app.utils.auth import get_current_user
-from app.utils.signed_urls import sign_image_url
+from app.utils.signed_urls import sign_image_url, sign_immich_asset_url
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +36,36 @@ class SourceItemResponse(BaseModel):
     subtype: str | None = None
     name: str | None = None
     primary_color: str | None = None
-    image_path: str
+    image_path: str | None = None
     thumbnail_path: str | None = None
+    medium_path: str | None = None
+    image_source: str = "local"
 
     @computed_field
     @property
-    def image_url(self) -> str:
-        return sign_image_url(self.image_path)
+    def image_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.image_path:
+            return sign_image_url(self.image_path)
+        return None
 
     @computed_field
     @property
     def thumbnail_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "thumbnail")
         if self.thumbnail_path:
             return sign_image_url(self.thumbnail_path)
+        return None
+
+    @computed_field
+    @property
+    def medium_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.medium_path:
+            return sign_image_url(self.medium_path)
         return None
 
 
@@ -58,21 +76,38 @@ class PairingItemResponse(BaseModel):
     name: str | None = None
     primary_color: str | None = None
     colors: list[str] = []
-    image_path: str
+    image_path: str | None = None
     thumbnail_path: str | None = None
+    medium_path: str | None = None
+    image_source: str = "local"
     layer_type: str | None = None
     position: int
 
     @computed_field
     @property
-    def image_url(self) -> str:
-        return sign_image_url(self.image_path)
+    def image_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.image_path:
+            return sign_image_url(self.image_path)
+        return None
 
     @computed_field
     @property
     def thumbnail_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "thumbnail")
         if self.thumbnail_path:
             return sign_image_url(self.thumbnail_path)
+        return None
+
+    @computed_field
+    @property
+    def medium_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.medium_path:
+            return sign_image_url(self.medium_path)
         return None
 
 
@@ -123,6 +158,13 @@ class GeneratePairingsResponse(BaseModel):
     pairings: list[PairingResponse]
 
 
+def item_image_source_value(item: ClothingItem) -> str:
+    source = getattr(item, "image_source", None)
+    if hasattr(source, "value"):
+        return source.value
+    return source or "local"
+
+
 def pairing_to_response(outfit: Outfit) -> PairingResponse:
     items = []
     for outfit_item in sorted(outfit.items, key=lambda x: x.position):
@@ -137,6 +179,8 @@ def pairing_to_response(outfit: Outfit) -> PairingResponse:
                 colors=item.colors or [],
                 image_path=item.image_path,
                 thumbnail_path=item.thumbnail_path,
+                medium_path=item.medium_path,
+                image_source=item_image_source_value(item),
                 layer_type=outfit_item.layer_type,
                 position=outfit_item.position,
             )
@@ -153,6 +197,8 @@ def pairing_to_response(outfit: Outfit) -> PairingResponse:
             primary_color=outfit.source_item.primary_color,
             image_path=outfit.source_item.image_path,
             thumbnail_path=outfit.source_item.thumbnail_path,
+            medium_path=outfit.source_item.medium_path,
+            image_source=item_image_source_value(outfit.source_item),
         )
 
     # Build feedback summary

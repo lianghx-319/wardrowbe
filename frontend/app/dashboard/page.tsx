@@ -36,6 +36,7 @@ import { usePendingOutfits, useAcceptOutfit, useRejectOutfit } from '@/lib/hooks
 import { useSchedules, useNotificationSettings } from '@/lib/hooks/use-notifications';
 import { useFamily } from '@/lib/hooks/use-family';
 import { toast } from 'sonner';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 function WeatherCard() {
   const { data: weather, isLoading, isError } = useWeather();
@@ -195,26 +196,30 @@ function PendingOutfitsCard() {
         {pendingOutfits.map((outfit) => (
           <div key={outfit.id} className="flex items-center gap-3">
             <div className="flex -space-x-2">
-              {outfit.items.slice(0, 3).map((item) => (
-                <div
-                  key={item.id}
-                  className="w-10 h-10 rounded-full bg-muted overflow-hidden relative border-2 border-background"
-                >
-                  {item.thumbnail_url ? (
-                    <Image
-                      src={item.thumbnail_url}
-                      alt={item.name || item.type}
-                      fill
-                      className="object-cover"
-                      sizes="40px"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Shirt className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              ))}
+              {outfit.items.slice(0, 3).map((item) => {
+                const imageSrc = getDisplayImageUrl(item);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="w-10 h-10 rounded-full bg-muted overflow-hidden relative border-2 border-background"
+                  >
+                    {imageSrc ? (
+                      <Image
+                        src={imageSrc}
+                        alt={item.name || item.type}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Shirt className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium capitalize truncate">{outfit.occasion}</p>

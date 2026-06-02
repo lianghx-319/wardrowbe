@@ -17,6 +17,7 @@ import { useAnalytics } from '@/lib/hooks/use-analytics';
 import { COLOR_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 function StatCard({
   title,
@@ -137,16 +138,18 @@ function ColorBar({ color, percentage }: { color: string; percentage: number }) 
   );
 }
 
-function ItemCard({ item }: { item: { id: string; name: string | null; type: string; thumbnail_url: string | null; wear_count: number } }) {
+function ItemCard({ item }: { item: { id: string; name: string | null; type: string; thumbnail_url: string | null; medium_url?: string | null; image_url?: string | null; wear_count: number } }) {
+  const imageSrc = getDisplayImageUrl(item);
+
   return (
     <Link
       href={`/dashboard/wardrobe?item=${item.id}`}
       className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
     >
       <div className="w-12 h-12 rounded bg-muted overflow-hidden relative flex-shrink-0">
-        {item.thumbnail_url ? (
+        {imageSrc ? (
           <Image
-            src={item.thumbnail_url}
+            src={imageSrc}
             alt={item.name || item.type}
             fill
             className="object-cover"

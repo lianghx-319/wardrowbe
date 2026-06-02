@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useAcceptOutfit, useRejectOutfit, type Outfit, type OutfitSource, type WoreInsteadItem } from '@/lib/hooks/use-outfits';
 import { OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
+import { getDisplayImageUrl, getPreviewImageUrl } from '@/lib/image-url';
 
 function StatusIcon({ status }: { status: Outfit['status'] }) {
   switch (status) {
@@ -141,6 +142,7 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
   };
 
   const isPending = outfit.status === 'pending' || outfit.status === 'sent' || outfit.status === 'viewed';
+  const previewImageSrc = getPreviewImageUrl(previewItem);
 
   return (
     <Card className="overflow-hidden h-full flex flex-col">
@@ -162,26 +164,30 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
           onClick={onPreview}
           className="flex gap-2 text-left w-full group"
         >
-          {outfit.items.map((item) => (
-            <div
-              key={item.id}
-              className="w-16 h-16 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
-            >
-              {item.thumbnail_url ? (
-                <Image
-                  src={item.thumbnail_url}
-                  alt={item.name || item.type}
-                  fill
-                  className="object-cover"
-                  sizes="64px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                  {TYPE_ZH[item.type] || item.type}
-                </div>
-              )}
-            </div>
-          ))}
+          {outfit.items.map((item) => {
+            const imageSrc = getDisplayImageUrl(item);
+
+            return (
+              <div
+                key={item.id}
+                className="w-16 h-16 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
+              >
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={item.name || item.type}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    {TYPE_ZH[item.type] || item.type}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </button>
 
         {/* Inline feedback display */}
@@ -214,29 +220,33 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
             </div>
             {outfit.feedback.wore_instead_items && outfit.feedback.wore_instead_items.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                {outfit.feedback.wore_instead_items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setPreviewItem(item)}
-                    className="w-14 h-14 rounded-lg bg-muted overflow-hidden relative border hover:ring-2 ring-primary transition-all"
-                    title={item.name || item.type}
-                  >
-                    {item.thumbnail_url ? (
-                      <Image
-                        src={item.thumbnail_url}
-                        alt={item.name || item.type}
-                        fill
-                        className="object-cover"
-                        sizes="56px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Shirt className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                  </button>
-                ))}
+                {outfit.feedback.wore_instead_items.map((item) => {
+                  const imageSrc = getDisplayImageUrl(item);
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setPreviewItem(item)}
+                      className="w-14 h-14 rounded-lg bg-muted overflow-hidden relative border hover:ring-2 ring-primary transition-all"
+                      title={item.name || item.type}
+                    >
+                      {imageSrc ? (
+                        <Image
+                          src={imageSrc}
+                          alt={item.name || item.type}
+                          fill
+                          className="object-cover"
+                          sizes="56px"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Shirt className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -331,9 +341,9 @@ export function OutfitHistoryCard({ outfit, onFeedback, onPreview }: OutfitHisto
           <div className="relative bg-muted">
             <Link href={`/dashboard/wardrobe?item=${previewItem?.id}`} className="block">
               <div className="relative aspect-square w-full max-h-[350px]">
-                {previewItem?.thumbnail_url ? (
+                {previewImageSrc && previewItem ? (
                   <Image
-                    src={previewItem.thumbnail_url}
+                    src={previewImageSrc}
                     alt={previewItem.name || previewItem.type}
                     fill
                     className="object-contain"

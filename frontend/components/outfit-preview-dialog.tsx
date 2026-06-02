@@ -17,6 +17,7 @@ import { FamilyRatingForm, FamilyRatingsDisplay } from '@/components/family-rati
 import { COLOR_ZH, OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { getDisplayImageUrl, getPreviewImageUrl } from '@/lib/image-url';
 
 interface OutfitPreviewDialogProps {
   outfit: Outfit;
@@ -41,6 +42,7 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
   const myRating = outfit.family_ratings?.find((r) => r.user_id === currentMember?.id);
 
   const currentItem = items[currentIndex];
+  const currentImageSrc = getPreviewImageUrl(currentItem);
 
   const goToPrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
@@ -93,10 +95,10 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
             <Link href={`/dashboard/wardrobe?item=${currentItem.id}`} className="block">
               {/* Image - smaller on mobile */}
               <div className="relative aspect-square w-full max-h-[280px] sm:max-h-[350px]">
-                {currentItem.image_url ? (
+                {currentImageSrc ? (
                   <Image
                     key={`${currentItem.id}-${imageKey}`}
-                    src={currentItem.image_url}
+                    src={currentImageSrc}
                     alt={currentItem.name || currentItem.type}
                     fill
                     className="object-contain"
@@ -217,9 +219,9 @@ export function OutfitPreviewDialog({ outfit, open, onClose, isOwner = true }: O
                         : 'border-transparent hover:border-muted-foreground/50'
                     }`}
                   >
-                    {item.thumbnail_url ? (
+                    {getDisplayImageUrl(item) ? (
                       <Image
-                        src={item.thumbnail_url}
+                        src={getDisplayImageUrl(item)!}
                         alt={item.name || item.type}
                         fill
                         className="object-cover"

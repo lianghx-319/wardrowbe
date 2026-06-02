@@ -33,6 +33,34 @@ def sign_immich_asset_url(
     return f"/api/v1/immich/assets/{item_id}?variant={variant}&expires={expires}&sig={sig}"
 
 
+def item_image_source_value(item) -> str:
+    source = getattr(item, "image_source", None)
+    if hasattr(source, "value"):
+        return source.value
+    return source or "local"
+
+
+def sign_item_image_urls(item) -> dict[str, str | None]:
+    source = item_image_source_value(item)
+    if source == "immich":
+        return {
+            "image_source": "immich",
+            "thumbnail_url": sign_immich_asset_url(str(item.id), "thumbnail"),
+            "medium_url": sign_immich_asset_url(str(item.id), "preview"),
+            "image_url": sign_immich_asset_url(str(item.id), "preview"),
+        }
+
+    image_path = getattr(item, "image_path", None)
+    thumbnail_path = getattr(item, "thumbnail_path", None)
+    medium_path = getattr(item, "medium_path", None)
+    return {
+        "image_source": source,
+        "thumbnail_url": sign_image_url(thumbnail_path) if thumbnail_path else None,
+        "medium_url": sign_image_url(medium_path) if medium_path else None,
+        "image_url": sign_image_url(image_path) if image_path else None,
+    }
+
+
 def verify_signature(path: str, expires: str, signature: str) -> bool:
     try:
         expiry_time = int(expires)

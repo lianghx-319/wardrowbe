@@ -73,6 +73,7 @@ import {
 import { ColorEyedropper } from '@/components/color-eyedropper';
 import { GeneratePairingsDialog } from '@/components/generate-pairings-dialog';
 import { useFeatures } from '@/lib/hooks/use-features';
+import { getDisplayImageUrl, getPreviewImageUrl } from '@/lib/image-url';
 
 interface ItemDetailDialogProps {
   item: Item | null;
@@ -240,8 +241,8 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
   const isImmichItem = item.image_source === 'immich';
 
   // Use signed URL from backend for better quality in detail view
-  const imageUrl = item.medium_url || item.image_url || item.thumbnail_url || item.image_path || '';
-  const primaryImageCandidates = [item.medium_url, item.image_url, item.thumbnail_url, item.image_path]
+  const imageUrl = getPreviewImageUrl(item) || item.image_path || '';
+  const primaryImageCandidates = [getPreviewImageUrl(item), item.image_path]
     .filter((url): url is string => !!url);
   const primaryImageUrl = primaryImageCandidates[
     Math.min(primaryImageFallbackIndex, Math.max(primaryImageCandidates.length - 1, 0))
@@ -255,6 +256,8 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
   // AI-generated tags
   const tags = item.tags || {};
   const zhTags = item.tags_zh || {};
+  const warmthLevel = tags.warmth_level;
+  const warmthLabel = zhTags.warmth_level || (warmthLevel ? WARMTH_ZH[warmthLevel] || warmthLevel : undefined);
   const hasAiTags = !!(tags.colors?.length || tags.pattern || tags.material ||
                    tags.style?.length || tags.season?.length || tags.formality || tags.fit ||
                    tags.occasion?.length || tags.condition || tags.features?.length);
@@ -411,7 +414,10 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
                   };
                   const allImages = [
                     { url: withVersion(primaryImageUrl), id: 'primary' },
-                    ...(item.additional_images || []).map((img) => ({ url: img.image_url, id: img.id })),
+                    ...(item.additional_images || []).map((img) => ({
+                      url: getPreviewImageUrl(img) || img.image_url,
+                      id: img.id,
+                    })),
                   ].filter((img) => !!img.url);
                   const currentImage = allImages[activeImageIndex] || allImages[0];
                   return (
@@ -484,42 +490,58 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
                     className={`relative w-12 h-12 rounded border-2 overflow-hidden flex-shrink-0 ${activeImageIndex === 0 ? 'border-primary' : 'border-transparent'}`}
                     onClick={() => setActiveImageIndex(0)}
                   >
-                    <Image src={imageUrl} alt="主图" fill className="object-cover" sizes="48px" />
+                    {imageUrl ? (
+                      <Image src={imageUrl} alt="主图" fill className="object-cover" sizes="48px" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
                   </button>
-                  {(item.additional_images || []).map((img, idx) => (
-                    <div key={img.id} className="relative flex-shrink-0">
-                      <button
-                        className={`relative w-12 h-12 rounded border-2 overflow-hidden ${activeImageIndex === idx + 1 ? 'border-primary' : 'border-transparent'}`}
-                        onClick={() => setActiveImageIndex(idx + 1)}
-                      >
-                        <Image src={img.thumbnail_url || img.image_url} alt="" fill className="object-cover" sizes="48px" />
-                      </button>
-                      {isEditing && (
-                        <div className="absolute -top-1 -right-1 flex gap-0.5">
-                          <button
-                            className="bg-primary text-primary-foreground rounded-full p-0.5 hover:bg-primary/90"
-                            title="设为主图"
-                            onClick={() => {
-                              setPrimary.mutate({ itemId: item.id, imageId: img.id });
-                              setActiveImageIndex(0);
-                            }}
-                          >
-                            <Star className="h-2.5 w-2.5" />
-                          </button>
-                          <button
-                            className="bg-destructive text-destructive-foreground rounded-full p-0.5 hover:bg-destructive/90"
-                            title="删除图片"
-                            onClick={() => {
-                              deleteImage.mutate({ itemId: item.id, imageId: img.id });
-                              if (activeImageIndex > idx) setActiveImageIndex((i) => i - 1);
-                            }}
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {(item.additional_images || []).map((img, idx) => {
+                    const thumbUrl = getDisplayImageUrl(img);
+
+                    return (
+                      <div key={img.id} className="relative flex-shrink-0">
+                        <button
+                          className={`relative w-12 h-12 rounded border-2 overflow-hidden ${activeImageIndex === idx + 1 ? 'border-primary' : 'border-transparent'}`}
+                          onClick={() => setActiveImageIndex(idx + 1)}
+                        >
+                          {thumbUrl ? (
+                            <Image src={thumbUrl} alt="" fill className="object-cover" sizes="48px" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </button>
+                        {isEditing && (
+                          <div className="absolute -top-1 -right-1 flex gap-0.5">
+                            <button
+                              className="bg-primary text-primary-foreground rounded-full p-0.5 hover:bg-primary/90"
+                              title="设为主图"
+                              onClick={() => {
+                                setPrimary.mutate({ itemId: item.id, imageId: img.id });
+                                setActiveImageIndex(0);
+                              }}
+                            >
+                              <Star className="h-2.5 w-2.5" />
+                            </button>
+                            <button
+                              className="bg-destructive text-destructive-foreground rounded-full p-0.5 hover:bg-destructive/90"
+                              title="删除图片"
+                              onClick={() => {
+                                deleteImage.mutate({ itemId: item.id, imageId: img.id });
+                                if (activeImageIndex > idx) setActiveImageIndex((i) => i - 1);
+                              }}
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   {isEditing && (item.additional_images?.length || 0) < 4 && (
                     <label
                       className="w-12 h-12 rounded border-2 border-dashed border-muted-foreground/30 flex items-center justify-center cursor-pointer hover:border-primary/50 flex-shrink-0"
@@ -842,9 +864,9 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
                                         className="w-5 h-5 rounded-full bg-muted border-2 border-background overflow-hidden"
                                         title={oi.name || oi.type}
                                       >
-                                        {oi.thumbnail_url && (
+                                        {getDisplayImageUrl(oi) && (
                                           <Image
-                                            src={oi.thumbnail_url}
+                                            src={getDisplayImageUrl(oi)!}
                                             alt={oi.name || oi.type}
                                             width={20}
                                             height={20}
@@ -935,9 +957,9 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
                             {o}
                           </Badge>
                         ))}
-                        {(zhTags.warmth_level || tags.warmth_level) && (
+                        {warmthLabel && (
                           <Badge variant="outline" className="text-xs">
-                            保暖：{zhTags.warmth_level || WARMTH_ZH[tags.warmth_level] || tags.warmth_level}
+                            保暖：{warmthLabel}
                           </Badge>
                         )}
                         {tags.temperature_min_c != null && tags.temperature_max_c != null && (

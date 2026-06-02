@@ -48,6 +48,7 @@ import { usePreferences } from '@/lib/hooks/use-preferences';
 import { cn } from '@/lib/utils';
 import { TempUnit, formatTemp, displayValue, toF, toCelsius } from '@/lib/temperature';
 import { OCCASION_ZH, TYPE_ZH, itemTitleZh } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 // Map occasion values to icons and colors
 const OCCASION_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -382,39 +383,43 @@ function OutfitResult({
         </div>
         <CardContent className="p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {outfit.items.map((item) => (
-              <Link
-                key={item.id}
-                href={`/dashboard/wardrobe?item=${item.id}`}
-                className="group relative rounded-xl border overflow-hidden bg-muted/30 hover:shadow-md transition-shadow"
-              >
-                <div className="aspect-square relative">
-                  {item.thumbnail_url ? (
-                    <Image
-                      src={item.thumbnail_url}
-                      alt={item.name || item.type}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform"
-                      sizes="(max-width: 640px) 50vw, 33vw"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                      <Shirt className="h-10 w-10 text-muted-foreground/50" />
-                    </div>
-                  )}
-                </div>
-                <div className="p-2.5">
-                  <p className="text-sm font-medium truncate">
-                    {itemTitleZh(item)}
-                  </p>
-                  {item.layer_type && (
-                    <Badge variant="secondary" className="text-xs mt-1">
-                      {TYPE_ZH[item.layer_type] || item.layer_type}
-                    </Badge>
-                  )}
-                </div>
-              </Link>
-            ))}
+            {outfit.items.map((item) => {
+              const imageSrc = getDisplayImageUrl(item);
+
+              return (
+                <Link
+                  key={item.id}
+                  href={`/dashboard/wardrobe?item=${item.id}`}
+                  className="group relative rounded-xl border overflow-hidden bg-muted/30 hover:shadow-md transition-shadow"
+                >
+                  <div className="aspect-square relative">
+                    {imageSrc ? (
+                      <Image
+                        src={imageSrc}
+                        alt={item.name || item.type}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
+                        sizes="(max-width: 640px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <Shirt className="h-10 w-10 text-muted-foreground/50" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2.5">
+                    <p className="text-sm font-medium truncate">
+                      {itemTitleZh(item)}
+                    </p>
+                    {item.layer_type && (
+                      <Badge variant="secondary" className="text-xs mt-1">
+                        {TYPE_ZH[item.layer_type] || item.layer_type}
+                      </Badge>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
           {outfit.style_notes && (

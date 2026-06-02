@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { ITEM_ROLE } from '@/lib/studio/canonical-order';
 import { cn } from '@/lib/utils';
 import type { StudioItem } from '@/lib/studio/editor-state';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 interface CanvasPanelProps {
   items: StudioItem[];
@@ -46,9 +47,9 @@ export function CanvasPanel({ items, onRemove }: CanvasPanelProps) {
               <X className="h-3 w-3" />
             </button>
             <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary/50 bg-background">
-              {item.thumbnail_url || item.image_url ? (
+              {getDisplayImageUrl(item) ? (
                 <Image
-                  src={(item.thumbnail_url || item.image_url)!}
+                  src={getDisplayImageUrl(item)!}
                   alt={item.name || item.type}
                   width={96}
                   height={96}

@@ -25,6 +25,7 @@ import { OutfitPreviewDialog } from '@/components/outfit-preview-dialog';
 import { OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 function getInitials(name: string) {
   return name
@@ -109,26 +110,30 @@ function FeedOutfitCard({
           onClick={onPreview}
           className="flex gap-2 text-left w-full group"
         >
-          {outfit.items.map((item) => (
-            <div
-              key={item.id}
-              className="w-20 h-20 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
-            >
-              {item.thumbnail_url ? (
-                <Image
-                  src={item.thumbnail_url}
-                  alt={item.name || item.type}
-                  fill
-                  className="object-cover"
-                  sizes="80px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                  {TYPE_ZH[item.type] || item.type}
-                </div>
-              )}
-            </div>
-          ))}
+          {outfit.items.map((item) => {
+            const imageSrc = getDisplayImageUrl(item);
+
+            return (
+              <div
+                key={item.id}
+                className="w-20 h-20 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
+              >
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={item.name || item.type}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    {TYPE_ZH[item.type] || item.type}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </button>
 
         {/* AI reasoning */}

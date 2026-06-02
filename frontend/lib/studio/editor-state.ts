@@ -5,6 +5,7 @@ export interface StudioItem {
   type: string;
   name: string | null;
   thumbnail_url?: string | null;
+  medium_url?: string | null;
   image_url?: string | null;
   primary_color?: string | null;
 }

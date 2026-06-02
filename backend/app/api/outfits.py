@@ -40,7 +40,7 @@ from app.services.suggestion_cache import clear_suggestions
 from app.services.weather_service import WeatherData
 from app.utils.auth import get_current_user
 from app.utils.rate_limit import rate_limit_by_user
-from app.utils.signed_urls import sign_image_url
+from app.utils.signed_urls import sign_image_url, sign_immich_asset_url
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +121,17 @@ class OutfitItemResponse(BaseModel):
     colors: list[str] = []
     image_path: str | None = None
     thumbnail_path: str | None = None
+    medium_path: str | None = None
+    image_source: str = "local"
     layer_type: str | None = None
     position: int
 
     @computed_field
     @property
     def image_url(self) -> str | None:
+        if self.image_source == "immich":
+            # HEIC/HEIF originals may not render in browsers; use Immich's preview.
+            return sign_immich_asset_url(str(self.id), "preview")
         if self.image_path:
             return sign_image_url(self.image_path)
         return None
@@ -134,8 +139,19 @@ class OutfitItemResponse(BaseModel):
     @computed_field
     @property
     def thumbnail_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "thumbnail")
         if self.thumbnail_path:
             return sign_image_url(self.thumbnail_path)
+        return None
+
+    @computed_field
+    @property
+    def medium_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.medium_path:
+            return sign_image_url(self.medium_path)
         return None
 
 
@@ -143,13 +159,36 @@ class WoreInsteadItem(BaseModel):
     id: UUID
     type: str
     name: str | None = None
+    image_path: str | None = None
     thumbnail_path: str | None = None
+    medium_path: str | None = None
+    image_source: str = "local"
+
+    @computed_field
+    @property
+    def image_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.image_path:
+            return sign_image_url(self.image_path)
+        return None
 
     @computed_field
     @property
     def thumbnail_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "thumbnail")
         if self.thumbnail_path:
             return sign_image_url(self.thumbnail_path)
+        return None
+
+    @computed_field
+    @property
+    def medium_url(self) -> str | None:
+        if self.image_source == "immich":
+            return sign_immich_asset_url(str(self.id), "preview")
+        if self.medium_path:
+            return sign_image_url(self.medium_path)
         return None
 
 
@@ -241,6 +280,13 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
 
 
+def item_image_source_value(item: ClothingItem) -> str:
+    source = getattr(item, "image_source", None)
+    if hasattr(source, "value"):
+        return source.value
+    return source or "local"
+
+
 async def fetch_wore_instead_items_map(
     db: AsyncSession, outfits: list[Outfit], user_id: UUID | None = None
 ) -> dict[str, list[WoreInsteadItem]]:
@@ -283,7 +329,10 @@ async def fetch_wore_instead_items_map(
                         id=item.id,
                         type=item.type,
                         name=item.name,
+                        image_path=item.image_path,
                         thumbnail_path=item.thumbnail_path,
+                        medium_path=item.medium_path,
+                        image_source=item_image_source_value(item),
                     )
                 )
         if wore_items:
@@ -310,6 +359,8 @@ def outfit_to_response(
                 colors=item.colors or [],
                 image_path=item.image_path,
                 thumbnail_path=item.thumbnail_path,
+                medium_path=item.medium_path,
+                image_source=item_image_source_value(item),
                 layer_type=outfit_item.layer_type,
                 position=outfit_item.position,
             )

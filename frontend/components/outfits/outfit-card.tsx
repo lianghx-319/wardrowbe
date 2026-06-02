@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { Outfit } from '@/lib/hooks/use-outfits';
 import { OCCASION_ZH, TYPE_ZH } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 interface OutfitCardProps {
   outfit: Outfit;
@@ -109,9 +110,9 @@ export function OutfitCard({ outfit, onClick }: OutfitCardProps) {
                 key={`${item.id}-${idx}`}
                 className="relative rounded overflow-hidden bg-background"
               >
-                {item.thumbnail_url || item.image_url ? (
+                {getDisplayImageUrl(item) ? (
                   <Image
-                    src={(item.thumbnail_url || item.image_url)!}
+                    src={getDisplayImageUrl(item)!}
                     alt={item.name || item.type}
                     fill
                     className="object-cover"

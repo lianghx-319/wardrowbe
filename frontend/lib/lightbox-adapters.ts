@@ -1,3 +1,5 @@
+import { getDisplayImageUrl, getPreviewImageUrl } from '@/lib/image-url';
+
 export type LightboxImage = {
   uri: string;
   placeholderUri?: string;
@@ -36,13 +38,11 @@ type PairingLike = {
 };
 
 function pickUri(img: ImageLike | null | undefined): string | null {
-  if (!img) return null;
-  return img.image_url || img.medium_url || img.thumbnail_url || null;
+  return getPreviewImageUrl(img);
 }
 
 function pickPlaceholder(img: ImageLike | null | undefined): string | undefined {
-  if (!img) return undefined;
-  return img.medium_url || img.thumbnail_url || undefined;
+  return getDisplayImageUrl(img) ?? undefined;
 }
 
 function itemCategory(item: ItemLike): string | undefined {

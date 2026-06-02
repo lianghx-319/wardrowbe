@@ -13,13 +13,16 @@ export interface User {
 export interface ClothingItem {
   id: string;
   user_id: string;
-  image_path: string;
-  image_url: string;
-  thumbnail_path?: string;
-  thumbnail_url?: string;
+  image_path?: string | null;
+  thumbnail_path?: string | null;
+  medium_path?: string | null;
+  image_source?: 'local' | 'immich';
   possible_duplicate?: boolean;
   duplicate_of_item_id?: string | null;
   duplicate_distance?: number | null;
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
   type: string;
   subtype?: string;
   tags: Record<string, unknown>;

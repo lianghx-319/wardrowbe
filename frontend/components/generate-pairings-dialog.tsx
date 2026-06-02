@@ -19,6 +19,7 @@ import { Item, Pairing } from '@/lib/types';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { itemColorZh, itemTitleZh, itemTypeZh } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 interface GeneratePairingsDialogProps {
   item: Item | null;
@@ -67,7 +68,7 @@ export function GeneratePairingsDialog({
 
   if (!item) return null;
 
-  const imageUrl = item.thumbnail_url || item.image_url || item.image_path;
+  const imageUrl = getDisplayImageUrl(item);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -88,13 +89,19 @@ export function GeneratePairingsDialog({
             {/* Source item preview */}
             <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
               <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden relative border-2 border-primary/30">
-                <Image
-                  src={imageUrl}
-                  alt={itemTitleZh(item)}
-                  fill
-                  className="object-cover"
-                  sizes="64px"
-                />
+                {imageUrl ? (
+                  <Image
+                    src={imageUrl}
+                    alt={itemTitleZh(item)}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    {itemTypeZh(item)}
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{itemTitleZh(item)}</p>
@@ -147,24 +154,28 @@ export function GeneratePairingsDialog({
                   key={pairing.id}
                   className="flex gap-1 p-1 rounded-lg bg-muted border"
                 >
-                  {pairing.items.slice(0, 3).map((pairingItem) => (
-                    <div
-                      key={pairingItem.id}
-                      className="w-8 h-8 rounded overflow-hidden relative"
-                    >
-                      {pairingItem.thumbnail_url ? (
-                        <Image
-                          src={pairingItem.thumbnail_url}
-                          alt={itemTypeZh(pairingItem)}
-                          fill
-                          className="object-cover"
-                          sizes="32px"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted-foreground/20" />
-                      )}
-                    </div>
-                  ))}
+                  {pairing.items.slice(0, 3).map((pairingItem) => {
+                    const imageSrc = getDisplayImageUrl(pairingItem);
+
+                    return (
+                      <div
+                        key={pairingItem.id}
+                        className="w-8 h-8 rounded overflow-hidden relative"
+                      >
+                        {imageSrc ? (
+                          <Image
+                            src={imageSrc}
+                            alt={itemTypeZh(pairingItem)}
+                            fill
+                            className="object-cover"
+                            sizes="32px"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted-foreground/20" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>

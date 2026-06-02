@@ -28,6 +28,7 @@ import { useDeleteOutfit, useOutfit, useOutfits } from '@/lib/hooks/use-outfits'
 import { useWearToday } from '@/lib/hooks/use-studio';
 import { getErrorMessage } from '@/lib/api';
 import { OCCASION_ZH, itemTitleZh } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 const SOURCE_ZH: Record<string, string> = {
   manual: '手动创建',
@@ -135,9 +136,9 @@ export default function OutfitDetailPage() {
                 className="group"
               >
                 <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted">
-                  {item.thumbnail_url || item.image_url ? (
+                  {getDisplayImageUrl(item) ? (
                     <Image
-                      src={(item.thumbnail_url || item.image_url)!}
+                      src={getDisplayImageUrl(item)!}
                       alt={item.name || item.type}
                       fill
                       className="object-cover transition-transform group-hover:scale-105"

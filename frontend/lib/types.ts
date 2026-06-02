@@ -306,10 +306,13 @@ export interface OutfitItem {
   name?: string;
   primary_color?: string;
   colors: string[];
-  image_path: string;
-  thumbnail_path?: string;
-  image_url?: string;
-  thumbnail_url?: string;
+  image_path?: string | null;
+  thumbnail_path?: string | null;
+  medium_path?: string | null;
+  image_source?: 'local' | 'immich';
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
   layer_type?: string;
   position: number;
 }
@@ -368,10 +371,13 @@ export interface SourceItem {
   subtype?: string;
   name?: string;
   primary_color?: string;
-  image_path: string;
-  thumbnail_path?: string;
-  image_url?: string;
-  thumbnail_url?: string;
+  image_path?: string | null;
+  thumbnail_path?: string | null;
+  medium_path?: string | null;
+  image_source?: 'local' | 'immich';
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
 }
 
 export interface Pairing extends Outfit {

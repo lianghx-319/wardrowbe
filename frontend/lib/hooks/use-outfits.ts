@@ -18,10 +18,13 @@ export interface OutfitItem {
   name: string | null;
   primary_color: string | null;
   colors: string[];
-  image_path: string;
+  image_path: string | null;
   thumbnail_path: string | null;
-  thumbnail_url?: string;
-  image_url?: string;
+  medium_path: string | null;
+  image_source?: 'local' | 'immich';
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
+  image_url?: string | null;
   layer_type: string | null;
   position: number;
 }
@@ -30,8 +33,13 @@ export interface WoreInsteadItem {
   id: string;
   type: string;
   name: string | null;
+  image_path: string | null;
   thumbnail_path: string | null;
-  thumbnail_url?: string;
+  medium_path: string | null;
+  image_source?: 'local' | 'immich';
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
+  image_url?: string | null;
 }
 
 export interface FeedbackSummary {

@@ -76,6 +76,7 @@ export default function StudioEditorPage() {
       type: item.type,
       name: item.name ?? null,
       thumbnail_url: item.thumbnail_url ?? null,
+      medium_url: item.medium_url ?? null,
       image_url: item.image_url ?? null,
       primary_color: item.primary_color ?? null,
     }));
@@ -120,6 +121,7 @@ export default function StudioEditorPage() {
         type: item.type,
         name: item.name ?? null,
         thumbnail_url: item.thumbnail_url ?? null,
+        medium_url: item.medium_url ?? null,
         image_url: item.image_url ?? null,
         primary_color: item.primary_color ?? null,
       }));
@@ -170,6 +172,7 @@ export default function StudioEditorPage() {
         type: item.type,
         name: item.name ?? null,
         thumbnail_url: item.thumbnail_url ?? null,
+        medium_url: item.medium_url ?? null,
         image_url: item.image_url ?? null,
         primary_color: item.primary_color ?? null,
       },

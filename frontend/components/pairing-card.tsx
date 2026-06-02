@@ -9,6 +9,7 @@ import { useDeletePairing } from '@/lib/hooks/use-pairings';
 import { Pairing } from '@/lib/types';
 import { COLOR_ZH, TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -74,9 +75,9 @@ export function PairingCard({ pairing, onFeedback, onPreview }: PairingCardProps
             <p className="text-xs text-muted-foreground mb-1">围绕这件衣物：</p>
             <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
               <div className="w-12 h-12 rounded-md bg-muted overflow-hidden relative border-2 border-primary/30">
-                {pairing.source_item.thumbnail_url ? (
+                {getDisplayImageUrl(pairing.source_item) ? (
                   <Image
-                    src={pairing.source_item.thumbnail_url}
+                    src={getDisplayImageUrl(pairing.source_item)!}
                     alt={pairing.source_item.name || pairing.source_item.type}
                     fill
                     className="object-cover"
@@ -108,26 +109,30 @@ export function PairingCard({ pairing, onFeedback, onPreview }: PairingCardProps
           onClick={onPreview}
           className="flex gap-2 text-left w-full group"
         >
-          {otherItems.map((item) => (
-            <div
-              key={item.id}
-              className="w-14 h-14 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
-            >
-              {item.thumbnail_url ? (
-                <Image
-                  src={item.thumbnail_url}
-                  alt={item.name || item.type}
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                  {TYPE_ZH[item.type] || item.type}
-                </div>
-              )}
-            </div>
-          ))}
+          {otherItems.map((item) => {
+            const imageSrc = getDisplayImageUrl(item);
+
+            return (
+              <div
+                key={item.id}
+                className="w-14 h-14 rounded-lg bg-muted overflow-hidden relative border shadow-sm group-hover:shadow-md transition-shadow"
+              >
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={item.name || item.type}
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    {TYPE_ZH[item.type] || item.type}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </button>
 
         {/* Feedback display */}

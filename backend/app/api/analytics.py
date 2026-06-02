@@ -12,7 +12,7 @@ from app.models.item import ClothingItem, ItemStatus
 from app.models.outfit import Outfit, OutfitStatus, UserFeedback
 from app.models.user import User
 from app.utils.auth import get_current_user
-from app.utils.signed_urls import sign_image_url
+from app.utils.signed_urls import item_image_source_value, sign_item_image_urls
 from app.utils.zh_labels import COLOR_ZH
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
@@ -35,16 +35,27 @@ class WearStats(BaseModel):
     name: str | None
     type: str
     primary_color: str | None
+    image_path: str | None
     thumbnail_path: str | None
+    medium_path: str | None
+    image_source: str = "local"
     wear_count: int
     last_worn_at: date | None
 
     @computed_field
     @property
+    def image_url(self) -> str | None:
+        return sign_item_image_urls(self)["image_url"]
+
+    @computed_field
+    @property
     def thumbnail_url(self) -> str | None:
-        if self.thumbnail_path:
-            return sign_image_url(self.thumbnail_path)
-        return None
+        return sign_item_image_urls(self)["thumbnail_url"]
+
+    @computed_field
+    @property
+    def medium_url(self) -> str | None:
+        return sign_item_image_urls(self)["medium_url"]
 
 
 class AcceptanceRateTrend(BaseModel):
@@ -238,7 +249,10 @@ async def get_analytics(
             name=item.name,
             type=item.type,
             primary_color=item.primary_color,
+            image_path=item.image_path,
             thumbnail_path=item.thumbnail_path,
+            medium_path=item.medium_path,
+            image_source=item_image_source_value(item),
             wear_count=item.wear_count,
             last_worn_at=item.last_worn_at,
         )
@@ -252,7 +266,10 @@ async def get_analytics(
             name=item.name,
             type=item.type,
             primary_color=item.primary_color,
+            image_path=item.image_path,
             thumbnail_path=item.thumbnail_path,
+            medium_path=item.medium_path,
+            image_source=item_image_source_value(item),
             wear_count=item.wear_count,
             last_worn_at=item.last_worn_at,
         )
@@ -268,7 +285,10 @@ async def get_analytics(
             name=item.name,
             type=item.type,
             primary_color=item.primary_color,
+            image_path=item.image_path,
             thumbnail_path=item.thumbnail_path,
+            medium_path=item.medium_path,
+            image_source=item_image_source_value(item),
             wear_count=item.wear_count,
             last_worn_at=item.last_worn_at,
         )
