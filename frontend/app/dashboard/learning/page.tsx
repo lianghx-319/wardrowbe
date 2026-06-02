@@ -33,6 +33,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { COLOR_ZH, OCCASION_ZH, STYLE_ZH, TYPE_ZH } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 const INSIGHT_CATEGORY_ZH: Record<string, string> = {
   color: '颜色',
@@ -190,6 +191,8 @@ function ColorPreferenceBar({ colorScore }: { colorScore: LearnedColorScore }) {
 }
 
 function ItemPairCard({ pair }: { pair: ItemPair }) {
+  const item1ImageSrc = getDisplayImageUrl(pair.item1);
+  const item2ImageSrc = getDisplayImageUrl(pair.item2);
   const successRate = pair.times_paired > 0
     ? Math.round((pair.times_accepted / pair.times_paired) * 100)
     : 0;
@@ -202,9 +205,9 @@ function ItemPairCard({ pair }: { pair: ItemPair }) {
           href={`/dashboard/wardrobe/${pair.item1.id}`}
           className="w-12 h-12 rounded bg-background overflow-hidden relative flex-shrink-0 hover:ring-2 ring-primary transition-all"
         >
-          {pair.item1.thumbnail_url ? (
+          {item1ImageSrc ? (
             <Image
-              src={pair.item1.thumbnail_url}
+              src={item1ImageSrc}
               alt={pair.item1.name || pair.item1.type}
               fill
               className="object-cover"
@@ -225,9 +228,9 @@ function ItemPairCard({ pair }: { pair: ItemPair }) {
           href={`/dashboard/wardrobe/${pair.item2.id}`}
           className="w-12 h-12 rounded bg-background overflow-hidden relative flex-shrink-0 hover:ring-2 ring-primary transition-all"
         >
-          {pair.item2.thumbnail_url ? (
+          {item2ImageSrc ? (
             <Image
-              src={pair.item2.thumbnail_url}
+              src={item2ImageSrc}
               alt={pair.item2.name || pair.item2.type}
               fill
               className="object-cover"
