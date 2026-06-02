@@ -62,6 +62,9 @@ export interface Item {
   thumbnail_path?: string;
   medium_path?: string;
   image_source?: 'local' | 'immich';
+  possible_duplicate?: boolean;
+  duplicate_of_item_id?: string | null;
+  duplicate_distance?: number | null;
   immich_asset_id?: string;
   immich_original_filename?: string;
   image_url?: string;
@@ -110,6 +113,7 @@ export interface ItemFilter {
   status?: string;
   favorite?: boolean;
   needs_wash?: boolean;
+  possible_duplicate?: boolean;
   is_archived?: boolean;
   search?: string;
   sort_by?: string;

@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
+from typing import NamedTuple
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -9,11 +10,17 @@ from sqlalchemy.orm import attributes, selectinload
 
 from app.models.item import ClothingItem, ImageSource, ItemHistory, ItemStatus, WashHistory
 from app.schemas.item import DEFAULT_WASH_INTERVALS, ItemCreate, ItemFilter, ItemUpdate
+from app.utils.ai_queue import analysis_queued_response
 from app.utils.zh_labels import expand_search_terms
 
 
 def should_use_immich_search(search: str) -> bool:
     return any(ord(char) > 127 for char in search)
+
+
+class DuplicateMatch(NamedTuple):
+    item: ClothingItem
+    distance: int
 
 
 class ItemService:
@@ -65,6 +72,8 @@ class ItemService:
             query = query.where(ClothingItem.status == filters.status)
         if filters.favorite is not None:
             query = query.where(ClothingItem.favorite == filters.favorite)
+        if filters.possible_duplicate is not None:
+            query = query.where(ClothingItem.possible_duplicate == filters.possible_duplicate)
         if filters.colors:
             query = query.where(ClothingItem.colors.overlap(filters.colors))
 
@@ -147,6 +156,7 @@ class ItemService:
         user_id: UUID,
         type_filter: str | None = None,
         search: str | None = None,
+        possible_duplicate: bool | None = None,
         is_archived: bool = False,
         excluded_ids: list[UUID] | None = None,
     ) -> list[UUID]:
@@ -156,6 +166,9 @@ class ItemService:
             query = query.where(ClothingItem.type == type_filter)
 
         query = query.where(ClothingItem.is_archived == is_archived)
+
+        if possible_duplicate is not None:
+            query = query.where(ClothingItem.possible_duplicate == possible_duplicate)
 
         if search:
             conditions = await self._build_search_conditions(user_id, search)
@@ -173,19 +186,31 @@ class ItemService:
         image_hash: str,
         threshold: int = 8,
     ) -> ClothingItem | None:
+        duplicate = await self.find_duplicate_by_hash_with_distance(user_id, image_hash, threshold)
+        return duplicate.item if duplicate else None
+
+    async def find_duplicate_by_hash_with_distance(
+        self,
+        user_id: UUID,
+        image_hash: str,
+        threshold: int = 8,
+    ) -> DuplicateMatch | None:
         # For exact duplicate detection (same hash)
         result = await self.db.execute(
-            select(ClothingItem).where(
+            select(ClothingItem)
+            .where(
                 and_(
                     ClothingItem.user_id == user_id,
                     ClothingItem.image_hash == image_hash,
                     ClothingItem.is_archived.is_(False),
                 )
             )
+            .order_by(ClothingItem.possible_duplicate.asc(), ClothingItem.created_at.asc())
+            .limit(1)
         )
-        exact = result.scalar_one_or_none()
+        exact = result.scalars().first()
         if exact:
-            return exact
+            return DuplicateMatch(exact, 0)
 
         from app.services.image_service import ImageService
 
@@ -200,8 +225,10 @@ class ItemService:
         )
         for item in result.scalars().all():
             try:
-                if item.image_hash and ImageService.is_duplicate(image_hash, item.image_hash, threshold):
-                    return item
+                if item.image_hash:
+                    distance = ImageService.hash_distance(image_hash, item.image_hash)
+                    if distance <= threshold:
+                        return DuplicateMatch(item, distance)
             except Exception:
                 continue
         return None
@@ -244,7 +271,8 @@ class ItemService:
             tags=tags,
             colors=item_data.colors or [],
             primary_color=item_data.primary_color,
-            status=ItemStatus.processing,  # AI analysis will update to ready
+            status=ItemStatus.processing,  # Queued AI analysis will update to ready
+            ai_raw_response=analysis_queued_response(),
             name=item_data.name,
             brand=item_data.brand,
             notes=item_data.notes,
@@ -266,6 +294,9 @@ class ItemService:
         image_hash: str | None,
         original_filename: str | None,
         checksum: str | None = None,
+        possible_duplicate: bool = False,
+        duplicate_of_item_id: UUID | None = None,
+        duplicate_distance: int | None = None,
     ) -> ClothingItem:
         item = ClothingItem(
             user_id=user_id,
@@ -278,10 +309,21 @@ class ItemService:
             immich_asset_id=asset_id,
             immich_checksum=checksum,
             immich_original_filename=original_filename,
+            possible_duplicate=possible_duplicate,
+            duplicate_of_item_id=duplicate_of_item_id,
+            duplicate_distance=duplicate_distance,
             type="unknown",
             tags={},
             colors=[],
-            status=ItemStatus.processing,
+            status=ItemStatus.ready if possible_duplicate else ItemStatus.processing,
+            ai_raw_response=(
+                {
+                    "duplicate_status": "possible",
+                    "reason": "Similar image detected during import",
+                }
+                if possible_duplicate
+                else analysis_queued_response()
+            ),
             name=original_filename.rsplit(".", 1)[0] if original_filename else None,
         )
         self.db.add(item)

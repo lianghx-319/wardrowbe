@@ -149,6 +149,7 @@ async def scan_immich_album(
         imported=int(result["imported"]),
         skipped_existing_asset=int(result["skipped_existing_asset"]),
         skipped_duplicate_hash=int(result["skipped_duplicate_hash"]),
+        possible_duplicates_imported=int(result.get("possible_duplicates_imported", 0)),
         failed=int(result["failed"]),
         queued=int(result["queued"]),
         message="Immich scan completed",

@@ -54,6 +54,11 @@ class ClothingItem(Base):
     image_source: Mapped[ImageSource] = mapped_column(
         Enum(ImageSource, name="image_source"), default=ImageSource.local, nullable=False
     )
+    possible_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    duplicate_of_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("clothing_items.id", ondelete="SET NULL"), index=True
+    )
+    duplicate_distance: Mapped[int | None] = mapped_column(Integer)
     immich_connection_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("immich_connections.id", ondelete="SET NULL"), index=True
     )

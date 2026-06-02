@@ -32,6 +32,7 @@ export interface ImmichScanResult {
   imported: number;
   skipped_existing_asset: number;
   skipped_duplicate_hash: number;
+  possible_duplicates_imported: number;
   failed: number;
   queued: number;
   message: string;

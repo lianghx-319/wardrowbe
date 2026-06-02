@@ -30,6 +30,9 @@ export function useItems(filters: ItemFilter = {}, page = 1, pageSize = 20) {
       if (filters.search) params.search = filters.search;
       if (filters.favorite !== undefined) params.favorite = String(filters.favorite);
       if (filters.needs_wash !== undefined) params.needs_wash = String(filters.needs_wash);
+      if (filters.possible_duplicate !== undefined) {
+        params.possible_duplicate = String(filters.possible_duplicate);
+      }
       if (filters.is_archived !== undefined) params.is_archived = String(filters.is_archived);
       if (filters.sort_by) params.sort_by = filters.sort_by;
       if (filters.sort_order) params.sort_order = filters.sort_order;
@@ -455,6 +458,24 @@ export function useReanalyzeItem() {
   });
 }
 
+export function useMarkItemNotDuplicate() {
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (session?.accessToken) {
+        setAccessToken(session.accessToken as string);
+      }
+      return api.post<{ job_id: string; status: string }>(`/items/${id}/mark-not-duplicate`);
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['item', id] });
+    },
+  });
+}
+
 export interface BulkUploadResult {
   filename: string;
   success: boolean;
@@ -486,6 +507,7 @@ export interface BulkOperationParams {
     search?: string;
     needs_wash?: boolean;
     favorite?: boolean;
+    possible_duplicate?: boolean;
     is_archived?: boolean;
   };
 }

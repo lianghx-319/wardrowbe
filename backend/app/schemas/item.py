@@ -80,6 +80,9 @@ class ItemResponse(ItemBase):
     thumbnail_path: str | None = None
     medium_path: str | None = None
     image_source: str = "local"
+    possible_duplicate: bool = False
+    duplicate_of_item_id: UUID | None = None
+    duplicate_distance: int | None = None
     immich_asset_id: str | None = None
     immich_original_filename: str | None = None
     tags: dict = Field(default_factory=dict)
@@ -165,6 +168,7 @@ class ItemFilter(BaseModel):
     status: str | None = None
     favorite: bool | None = None
     needs_wash: bool | None = None
+    possible_duplicate: bool | None = None
     is_archived: bool = False
     search: str | None = None
     sort_by: str | None = None
@@ -198,6 +202,7 @@ class BulkUploadResponse(BaseModel):
 class BulkFilters(BaseModel):
     type: str | None = None
     search: str | None = None
+    possible_duplicate: bool | None = None
     is_archived: bool | None = None
 
 

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.models.item import ItemStatus
 from app.models.user import User
 from app.schemas.item import (
     ArchiveRequest,
@@ -34,6 +35,7 @@ from app.schemas.item import (
 )
 from app.services.image_service import ImageService
 from app.services.item_service import ItemService
+from app.utils.ai_queue import analysis_queue_error_response, analysis_queued_response
 from app.utils.auth import get_current_user
 from app.workers.settings import get_redis_settings
 
@@ -55,6 +57,7 @@ async def list_items(
     status: str | None = None,
     favorite: bool | None = None,
     needs_wash: bool | None = None,
+    possible_duplicate: bool | None = None,
     is_archived: bool = False,
     search: str | None = None,
     sort_by: str | None = None,
@@ -69,6 +72,7 @@ async def list_items(
         status=status,
         favorite=favorite,
         needs_wash=needs_wash,
+        possible_duplicate=possible_duplicate,
         is_archived=is_archived,
         search=search,
         sort_by=sort_by,
@@ -167,6 +171,7 @@ async def create_item(
         item_data=item_data,
         image_paths=image_paths,
     )
+    await db.commit()
 
     # Queue AI tagging job
     try:
@@ -185,6 +190,9 @@ async def create_item(
     except Exception as e:
         # Don't fail the upload if queueing fails
         logger.error(f"Failed to queue AI tagging job: {e}")
+        item.status = ItemStatus.error
+        item.ai_raw_response = analysis_queue_error_response("Failed to queue AI tagging job")
+        await db.commit()
 
     return ItemResponse.model_validate(item)
 
@@ -274,6 +282,7 @@ async def bulk_create_items(
                     item_data=item_data,
                     image_paths=image_paths,
                 )
+                await db.commit()
 
                 # Queue AI tagging job
                 if redis:
@@ -288,6 +297,17 @@ async def bulk_create_items(
                         logger.info(f"Queued AI tagging for bulk item {item.id}")
                     except Exception as e:
                         logger.error(f"Failed to queue AI tagging for {item.id}: {e}")
+                        item.status = ItemStatus.error
+                        item.ai_raw_response = analysis_queue_error_response(
+                            "Failed to queue AI tagging job"
+                        )
+                        await db.commit()
+                else:
+                    item.status = ItemStatus.error
+                    item.ai_raw_response = analysis_queue_error_response(
+                        "Failed to connect to job queue"
+                    )
+                    await db.commit()
 
                 results.append(
                     BulkUploadResult(
@@ -348,6 +368,7 @@ async def bulk_delete_items(
             user_id=current_user.id,
             type_filter=request.filters.type if request.filters else None,
             search=request.filters.search if request.filters else None,
+            possible_duplicate=request.filters.possible_duplicate if request.filters else None,
             is_archived=request.filters.is_archived
             if request.filters and request.filters.is_archived is not None
             else False,
@@ -403,6 +424,7 @@ async def bulk_analyze_items(
             user_id=current_user.id,
             type_filter=request.filters.type if request.filters else None,
             search=request.filters.search if request.filters else None,
+            possible_duplicate=request.filters.possible_duplicate if request.filters else None,
             is_archived=request.filters.is_archived
             if request.filters and request.filters.is_archived is not None
             else False,
@@ -425,6 +447,10 @@ async def bulk_analyze_items(
     # Set all items to processing status
     for item in items_to_process:
         item.status = ItemStatus.processing
+        item.possible_duplicate = False
+        item.duplicate_of_item_id = None
+        item.duplicate_distance = None
+        item.ai_raw_response = analysis_queued_response()
     await db.commit()
 
     # Queue AI jobs
@@ -436,6 +462,7 @@ async def bulk_analyze_items(
         # Roll back status changes
         for item in items_to_process:
             item.status = ItemStatus.error
+            item.ai_raw_response = analysis_queue_error_response("Failed to connect to job queue")
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -456,6 +483,7 @@ async def bulk_analyze_items(
                 logger.error(f"Failed to queue AI analysis for {item.id}: {e}")
                 errors.append(f"Failed to queue analysis for item {item.id}")
                 item.status = ItemStatus.error
+                item.ai_raw_response = analysis_queue_error_response("Failed to queue AI analysis")
                 failed += 1
 
         await db.commit()
@@ -792,9 +820,11 @@ async def trigger_ai_analysis(
 
     try:
         # Set item status to processing so UI shows feedback
-        from app.models.item import ItemStatus
-
         item.status = ItemStatus.processing
+        item.possible_duplicate = False
+        item.duplicate_of_item_id = None
+        item.duplicate_distance = None
+        item.ai_raw_response = analysis_queued_response()
         await db.commit()
 
         redis = await create_pool(get_redis_settings())
@@ -810,10 +840,22 @@ async def trigger_ai_analysis(
             await redis.aclose()
     except Exception as e:
         logger.error(f"Failed to queue AI analysis job: {e}")
+        item.status = ItemStatus.error
+        item.ai_raw_response = analysis_queue_error_response("Failed to queue AI analysis")
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to queue AI analysis",
         ) from None
+
+
+@router.post("/{item_id}/mark-not-duplicate", response_model=dict)
+async def mark_item_not_duplicate(
+    item_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    return await trigger_ai_analysis(item_id, db, current_user)
 
 
 @router.post("/{item_id}/rotate", response_model=ItemResponse)

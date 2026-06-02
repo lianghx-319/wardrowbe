@@ -36,6 +36,7 @@ class ImmichScanResponse(BaseModel):
     imported: int
     skipped_existing_asset: int
     skipped_duplicate_hash: int
+    possible_duplicates_imported: int = 0
     failed: int
     queued: int
     message: str

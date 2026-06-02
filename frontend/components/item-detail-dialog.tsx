@@ -25,6 +25,7 @@ import {
   Plus,
   Star,
   ImageIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -57,7 +58,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { useUpdateItem, useDeleteItem, useReanalyzeItem, useRotateImage, useRemoveBackground, useLogWash, useWashHistory, useItemWearStats, useItemWearHistory, useAddItemImage, useDeleteItemImage, useSetPrimaryImage } from '@/lib/hooks/use-items';
+import { useUpdateItem, useDeleteItem, useReanalyzeItem, useMarkItemNotDuplicate, useRotateImage, useRemoveBackground, useLogWash, useWashHistory, useItemWearStats, useItemWearHistory, useAddItemImage, useDeleteItemImage, useSetPrimaryImage } from '@/lib/hooks/use-items';
 import { Item, CLOTHING_TYPES, CLOTHING_COLORS } from '@/lib/types';
 import {
   COLOR_ZH,
@@ -104,6 +105,7 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   const reanalyzeItem = useReanalyzeItem();
+  const markNotDuplicate = useMarkItemNotDuplicate();
   const rotateImage = useRotateImage();
   const removeBackground = useRemoveBackground();
   const { data: features } = useFeatures();
@@ -202,6 +204,16 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
     }
   };
 
+  const handleMarkNotDuplicate = async () => {
+    try {
+      await markNotDuplicate.mutateAsync(item.id);
+      toast.success('已标记为非重复，并加入 AI 分析队列');
+    } catch (error) {
+      console.error('Failed to mark item as not duplicate:', error);
+      toast.error('标记失败');
+    }
+  };
+
   const handleRotate = async (direction: 'cw' | 'ccw') => {
     try {
       await rotateImage.mutateAsync({ id: item.id, direction });
@@ -224,7 +236,7 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
     }
   };
 
-  const isAnalyzing = reanalyzeItem.isPending || item.status === 'processing';
+  const isAnalyzing = reanalyzeItem.isPending || markNotDuplicate.isPending || item.status === 'processing';
   const isImmichItem = item.image_source === 'immich';
 
   // Use signed URL from backend for better quality in detail view
@@ -360,6 +372,34 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto overscroll-contain p-3 pt-3 sm:p-6 sm:pt-4">
+            {item.possible_duplicate && (
+              <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">可能重复</p>
+                    <p className="text-xs text-amber-900">
+                      这张图片和已有衣物较相似，已导入但暂未触发 AI 分析。
+                      {item.duplicate_distance != null && ` 相似距离：${item.duplicate_distance}`}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0 border-amber-300 bg-white/70"
+                    onClick={handleMarkNotDuplicate}
+                    disabled={markNotDuplicate.isPending}
+                  >
+                    {markNotDuplicate.isPending ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    不是重复
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 [&>*]:min-w-0">
             {/* Image Gallery */}
             <div className="space-y-2">

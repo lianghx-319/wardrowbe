@@ -17,9 +17,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.item import ClothingItem, ImmichConnection, ImmichConnectionStatus
+from app.models.item import ClothingItem, ImmichConnection, ImmichConnectionStatus, ItemStatus
 from app.services.image_service import ImageService
 from app.services.item_service import ItemService
+from app.utils.ai_queue import analysis_queue_error_response
 from app.workers.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
@@ -299,6 +300,7 @@ async def scan_connection(db: AsyncSession, connection: ImmichConnection) -> dic
     image_service = ImageService()
     counts = {
         "imported": 0,
+        "possible_duplicates_imported": 0,
         "skipped_existing_asset": 0,
         "skipped_duplicate_hash": 0,
         "failed": 0,
@@ -341,10 +343,9 @@ async def scan_connection(db: AsyncSession, connection: ImmichConnection) -> dic
                     continue
 
                 image_hash = image_service.compute_phash(image_bytes, filename)
-                duplicate = await item_service.find_duplicate_by_hash(connection.user_id, image_hash)
-                if duplicate:
-                    counts["skipped_duplicate_hash"] += 1
-                    continue
+                duplicate = await item_service.find_duplicate_by_hash_with_distance(
+                    connection.user_id, image_hash
+                )
 
                 item = await item_service.create_immich_item(
                     user_id=connection.user_id,
@@ -353,15 +354,36 @@ async def scan_connection(db: AsyncSession, connection: ImmichConnection) -> dic
                     image_hash=image_hash,
                     original_filename=Path(filename).name,
                     checksum=checksum,
+                    possible_duplicate=duplicate is not None,
+                    duplicate_of_item_id=duplicate.item.id if duplicate else None,
+                    duplicate_distance=duplicate.distance if duplicate else None,
                 )
+                await db.commit()
                 counts["imported"] += 1
+                if duplicate:
+                    counts["possible_duplicates_imported"] += 1
+                    continue
                 if redis:
-                    await redis.enqueue_job(
-                        "tag_item_by_id",
-                        str(item.id),
-                        _queue_name="arq:tagging",
+                    try:
+                        await redis.enqueue_job(
+                            "tag_item_by_id",
+                            str(item.id),
+                            _queue_name="arq:tagging",
+                        )
+                        counts["queued"] += 1
+                    except Exception as exc:
+                        item.status = ItemStatus.error
+                        item.ai_raw_response = analysis_queue_error_response(
+                            "Failed to queue AI tagging job"
+                        )
+                        await db.commit()
+                        raise exc
+                else:
+                    item.status = ItemStatus.error
+                    item.ai_raw_response = analysis_queue_error_response(
+                        "Failed to connect to job queue"
                     )
-                    counts["queued"] += 1
+                    await db.commit()
             except Exception as exc:
                 logger.warning("Failed to import Immich asset %s: %s", asset_id, exc)
                 counts["failed"] += 1

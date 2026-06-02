@@ -120,6 +120,13 @@ function ItemCard({
             <Heart className="h-4 w-4 fill-red-500 text-red-500" />
           </div>
         )}
+        {item.possible_duplicate && (
+          <div className="absolute bottom-2 left-2 z-10">
+            <Badge variant="secondary" className="bg-amber-500/90 text-white border-0 text-[10px]">
+              可能重复
+            </Badge>
+          </div>
+        )}
         {item.needs_wash && (
           <div className="absolute bottom-2 right-2 z-10">
             <div className="bg-amber-500/90 text-white rounded-full p-1" title="需要清洗">
@@ -251,6 +258,7 @@ export default function WardrobePage() {
   const [sortIndex, setSortIndex] = useState(0);
   const [needsWash, setNeedsWash] = useState<boolean | undefined>(undefined);
   const [favoriteFilter, setFavoriteFilter] = useState<boolean | undefined>(undefined);
+  const [possibleDuplicateFilter, setPossibleDuplicateFilter] = useState<boolean | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -269,6 +277,7 @@ export default function WardrobePage() {
     type: typeFilter !== 'all' ? typeFilter : undefined,
     needs_wash: needsWash,
     favorite: favoriteFilter,
+    possible_duplicate: possibleDuplicateFilter,
     is_archived: false,
     sort_by: sortOption.value,
     sort_order: sortOption.order,
@@ -277,6 +286,7 @@ export default function WardrobePage() {
   const activeFilterCount = [
     needsWash !== undefined,
     favoriteFilter !== undefined,
+    possibleDuplicateFilter !== undefined,
     typeFilter !== 'all',
   ].filter(Boolean).length;
 
@@ -300,11 +310,12 @@ export default function WardrobePage() {
   // Count items being processed or with errors
   const processingCount = items.filter((i) => i.status === 'processing').length;
   const errorCount = items.filter((i) => i.status === 'error').length;
+  const possibleDuplicateCount = items.filter((i) => i.possible_duplicate).length;
 
   // Clear selection when filters change (but not page - allow cross-page selection)
   useEffect(() => {
     setSelection({ mode: 'none', selectedIds: new Set(), excludedIds: new Set() });
-  }, [search, typeFilter, needsWash, favoriteFilter, sortIndex]);
+  }, [search, typeFilter, needsWash, favoriteFilter, possibleDuplicateFilter, sortIndex]);
 
   const handleRetry = (itemId: string) => {
     reanalyze.mutate(itemId);
@@ -361,6 +372,7 @@ export default function WardrobePage() {
           search: search || undefined,
           needs_wash: needsWash,
           favorite: favoriteFilter,
+          possible_duplicate: possibleDuplicateFilter,
           is_archived: false,
         },
       };
@@ -411,7 +423,7 @@ export default function WardrobePage() {
     try {
       const result = await scanImmich.mutateAsync();
       toast.success(
-        `Immich 扫描完成：导入 ${result.imported} 张，跳过 ${result.skipped_existing_asset + result.skipped_duplicate_hash} 张`
+        `Immich 扫描完成：导入 ${result.imported} 张，疑似重复 ${result.possible_duplicates_imported} 张，已存在 ${result.skipped_existing_asset} 张`
       );
       if (result.failed > 0) {
         toast.error(`${result.failed} 张 Immich 照片导入失败`);
@@ -455,8 +467,14 @@ export default function WardrobePage() {
           <p className="text-sm text-muted-foreground">
             衣橱中共有 {total} 件物品
           </p>
-          {(processingCount > 0 || errorCount > 0) && (
+          {(processingCount > 0 || errorCount > 0 || possibleDuplicateCount > 0) && (
             <div className="flex items-center gap-2 mt-2">
+              {possibleDuplicateCount > 0 && (
+                <Badge variant="secondary" className="gap-1 text-xs bg-amber-100 text-amber-900 border-amber-200">
+                  <AlertCircle className="h-3 w-3" />
+                  {possibleDuplicateCount} 件可能重复
+                </Badge>
+              )}
               {processingCount > 0 && (
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -544,6 +562,8 @@ export default function WardrobePage() {
               size="icon"
               className="shrink-0 relative"
               onClick={() => setShowFilters((v) => !v)}
+              title="筛选"
+              aria-label="筛选"
             >
               <SlidersHorizontal className="h-4 w-4" />
               {activeFilterCount > 0 && (
@@ -604,6 +624,19 @@ export default function WardrobePage() {
               收藏
             </Button>
 
+            <Button
+              variant={possibleDuplicateFilter === true ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={() => {
+                setPossibleDuplicateFilter(possibleDuplicateFilter === true ? undefined : true);
+                setPage(1);
+              }}
+            >
+              <AlertCircle className="h-3.5 w-3.5" />
+              可能重复
+            </Button>
+
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
@@ -613,6 +646,7 @@ export default function WardrobePage() {
                   setTypeFilter('all');
                   setNeedsWash(undefined);
                   setFavoriteFilter(undefined);
+                  setPossibleDuplicateFilter(undefined);
                   setPage(1);
                 }}
               >
@@ -644,7 +678,7 @@ export default function WardrobePage() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        search || typeFilter !== 'all' || needsWash !== undefined || favoriteFilter !== undefined ? (
+        search || typeFilter !== 'all' || needsWash !== undefined || favoriteFilter !== undefined || possibleDuplicateFilter !== undefined ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">
               没有找到符合筛选条件的衣物。
@@ -657,6 +691,8 @@ export default function WardrobePage() {
                 setTypeFilter('all');
                 setNeedsWash(undefined);
                 setFavoriteFilter(undefined);
+                setPossibleDuplicateFilter(undefined);
+                setPage(1);
               }}
             >
               清除筛选

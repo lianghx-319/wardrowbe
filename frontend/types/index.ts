@@ -17,6 +17,9 @@ export interface ClothingItem {
   image_url: string;
   thumbnail_path?: string;
   thumbnail_url?: string;
+  possible_duplicate?: boolean;
+  duplicate_of_item_id?: string | null;
+  duplicate_distance?: number | null;
   type: string;
   subtype?: string;
   tags: Record<string, unknown>;
