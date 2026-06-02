@@ -50,6 +50,7 @@ services:
       NODE_ENV: development
       # For local dev, use http://localhost:3000 (simpler, no cert issues)
       NEXTAUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
       BACKEND_URL: http://backend:8000
       WATCHPACK_POLLING: "true"
 

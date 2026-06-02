@@ -60,6 +60,28 @@ const DevCredentialsProvider = CredentialsProvider({
     };
   },
 });
+
+const DEFAULT_AUTH_REDIRECT = '/dashboard';
+
+export function resolveAuthRedirectUrl(url: string, baseUrl: string): string {
+  if (url.startsWith('/')) {
+    return url;
+  }
+
+  try {
+    const redirectUrl = new URL(url);
+    const requestBaseUrl = new URL(baseUrl);
+
+    if (redirectUrl.origin === requestBaseUrl.origin) {
+      return `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+    }
+  } catch {
+    return DEFAULT_AUTH_REDIRECT;
+  }
+
+  return DEFAULT_AUTH_REDIRECT;
+}
+
 // Determine which provider to use
 function getProviders() {
   const providers = [];
@@ -77,6 +99,9 @@ function getProviders() {
 export const authOptions: NextAuthOptions = {
   providers: getProviders(),
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      return resolveAuthRedirectUrl(url, baseUrl);
+    },
     async jwt({ token, user, account, trigger }) {
       const apiUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
 

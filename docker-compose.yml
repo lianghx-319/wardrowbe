@@ -90,6 +90,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-in-production}
       DEV_MODE: ${DEBUG:-false}
     ports:
