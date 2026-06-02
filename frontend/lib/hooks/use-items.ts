@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { api, getAccessToken, setAccessToken, ApiError, NetworkError } from '@/lib/api';
@@ -17,26 +17,33 @@ function useSetTokenIfAvailable() {
 export function useItems(filters: ItemFilter = {}, page = 1, pageSize = 20) {
   const { data: session, status } = useSession();
   useSetTokenIfAvailable();
+  const normalizedFilters = useMemo(
+    () => ({
+      ...filters,
+      search: filters.search?.trim() || undefined,
+    }),
+    [filters]
+  );
 
   return useQuery({
-    queryKey: ['items', filters, page, pageSize],
+    queryKey: ['items', normalizedFilters, page, pageSize],
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),
         page_size: String(pageSize),
       };
-      if (filters.type) params.type = filters.type;
-      if (filters.colors?.length) params.colors = filters.colors.join(',');
-      if (filters.search) params.search = filters.search;
-      if (filters.favorite !== undefined) params.favorite = String(filters.favorite);
-      if (filters.needs_wash !== undefined) params.needs_wash = String(filters.needs_wash);
-      if (filters.possible_duplicate !== undefined) {
-        params.possible_duplicate = String(filters.possible_duplicate);
+      if (normalizedFilters.type) params.type = normalizedFilters.type;
+      if (normalizedFilters.colors?.length) params.colors = normalizedFilters.colors.join(',');
+      if (normalizedFilters.search) params.search = normalizedFilters.search;
+      if (normalizedFilters.favorite !== undefined) params.favorite = String(normalizedFilters.favorite);
+      if (normalizedFilters.needs_wash !== undefined) params.needs_wash = String(normalizedFilters.needs_wash);
+      if (normalizedFilters.possible_duplicate !== undefined) {
+        params.possible_duplicate = String(normalizedFilters.possible_duplicate);
       }
-      if (filters.is_archived !== undefined) params.is_archived = String(filters.is_archived);
-      if (filters.sort_by) params.sort_by = filters.sort_by;
-      if (filters.sort_order) params.sort_order = filters.sort_order;
-      if (filters.ids) params.ids = filters.ids;
+      if (normalizedFilters.is_archived !== undefined) params.is_archived = String(normalizedFilters.is_archived);
+      if (normalizedFilters.sort_by) params.sort_by = normalizedFilters.sort_by;
+      if (normalizedFilters.sort_order) params.sort_order = normalizedFilters.sort_order;
+      if (normalizedFilters.ids) params.ids = normalizedFilters.ids;
 
       return api.get<ItemListResponse>('/items', { params });
     },
@@ -305,7 +312,10 @@ export interface WearHistoryEntry {
       id: string;
       type: string;
       name?: string;
-      thumbnail_url?: string;
+      image_source?: 'local' | 'immich';
+      thumbnail_url?: string | null;
+      medium_url?: string | null;
+      image_url?: string | null;
     }>;
   };
 }

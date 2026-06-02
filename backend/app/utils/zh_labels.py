@@ -1,3 +1,6 @@
+import re
+from dataclasses import dataclass
+
 TYPE_ZH = {
     "shirt": "衬衫",
     "t-shirt": "T 恤",
@@ -197,36 +200,137 @@ def build_zh_tags(tags: dict) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class SearchToken:
+    kind: str
+    value: str
+    aliases: tuple[str, ...] = ()
+
+
+SearchAlias = tuple[str, str]
+
+
+def _add_mapping_aliases(
+    aliases: dict[str, SearchAlias],
+    mapping: dict[str, str],
+    kind: str,
+) -> None:
+    for value, label in mapping.items():
+        aliases[value.lower()] = (kind, value)
+        aliases[label.lower()] = (kind, value)
+
+
+SEARCH_ALIASES_BY_KIND: dict[str, SearchAlias] = {}
+for _mapping, _kind in [
+    (TYPE_ZH, "type"),
+    (COLOR_ZH, "color"),
+    (PATTERN_ZH, "metadata"),
+    (MATERIAL_ZH, "metadata"),
+    (STYLE_ZH, "metadata"),
+    (SEASON_ZH, "metadata"),
+    (FORMALITY_ZH, "metadata"),
+    (FIT_ZH, "metadata"),
+    (FEATURE_ZH, "metadata"),
+    (WEATHER_ZH, "metadata"),
+    (WARMTH_ZH, "metadata"),
+]:
+    _add_mapping_aliases(SEARCH_ALIASES_BY_KIND, _mapping, _kind)
+
+SEARCH_ALIASES_BY_KIND.update(
+    {
+        "防雨": ("metadata", "water-resistant"),
+        "泼水": ("metadata", "water-resistant"),
+        "挡风": ("metadata", "wind-resistant"),
+        "适合叠穿": ("metadata", "layer-friendly"),
+        "裙子": ("type", "dress"),
+        "裙": ("type", "dress"),
+        "白": ("color", "white"),
+        "黑": ("color", "black"),
+        "蓝": ("color", "blue"),
+        "红": ("color", "red"),
+        "绿": ("color", "green"),
+        "波点": ("metadata", "polka-dot"),
+        "圆点": ("metadata", "polka-dot"),
+    }
+)
+
+CONTAINED_SEARCH_ALIASES = sorted(
+    (
+        (alias, kind, value)
+        for alias, (kind, value) in SEARCH_ALIASES_BY_KIND.items()
+        if len(alias) >= 2
+    ),
+    key=lambda entry: len(entry[0]),
+    reverse=True,
+)
+
+
+TYPE_SEARCH_ALIASES = {
+    alias: value for alias, (kind, value) in SEARCH_ALIASES_BY_KIND.items() if kind == "type"
+}
+
+
+def exact_type_search(term: str) -> str | None:
+    normalized = term.strip().lower()
+    if not normalized:
+        return None
+    return TYPE_SEARCH_ALIASES.get(normalized)
+
+
+def _make_search_token(kind: str, value: str) -> SearchToken:
+    aliases = tuple(
+        alias for alias, alias_target in SEARCH_ALIASES_BY_KIND.items() if alias_target == (kind, value)
+    )
+    return SearchToken(kind=kind, value=value, aliases=aliases or (value,))
+
+
+def _dedupe_search_tokens(tokens: list[SearchToken]) -> list[SearchToken]:
+    seen = set()
+    deduped = []
+    for token in tokens:
+        key = (token.kind, token.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(token)
+    return deduped
+
+
+def _parse_search_segment(segment: str) -> list[SearchToken]:
+    normalized = segment.strip().lower()
+    if not normalized:
+        return []
+
+    exact_alias = SEARCH_ALIASES_BY_KIND.get(normalized)
+    if exact_alias:
+        kind, value = exact_alias
+        return [_make_search_token(kind, value)]
+
+    contained_tokens = [
+        _make_search_token(kind, value)
+        for alias, kind, value in CONTAINED_SEARCH_ALIASES
+        if alias in normalized
+    ]
+    if contained_tokens:
+        return _dedupe_search_tokens(contained_tokens)
+
+    return [SearchToken(kind="text", value=normalized, aliases=(normalized,))]
+
+
+def parse_keyword_search(search: str) -> list[SearchToken]:
+    normalized = search.strip().lower()
+    if not normalized:
+        return []
+
+    segments = [segment for segment in re.split(r"[\s,，、]+", normalized) if segment]
+    tokens: list[SearchToken] = []
+    for segment in segments:
+        tokens.extend(_parse_search_segment(segment))
+    return _dedupe_search_tokens(tokens)
+
+
 SEARCH_ALIASES = {
-    **{v: k for k, v in TYPE_ZH.items()},
-    **{v: k for k, v in COLOR_ZH.items()},
-    **{v: k for k, v in PATTERN_ZH.items()},
-    **{v: k for k, v in MATERIAL_ZH.items()},
-    **{v: k for k, v in STYLE_ZH.items()},
-    **{v: k for k, v in SEASON_ZH.items()},
-    **{v: k for k, v in FEATURE_ZH.items()},
-    **{v: k for k, v in WEATHER_ZH.items()},
-    **{v: k for k, v in WARMTH_ZH.items()},
-    "防雨": "water-resistant",
-    "泼水": "water-resistant",
-    "挡风": "wind-resistant",
-    "保暖": "warm",
-    "透气": "breathable",
-    "适合叠穿": "layer-friendly",
-    "雨天": "rainy",
-    "有风": "windy",
-    "寒冷": "cold",
-    "炎热": "hot",
-    "裙子": "dress",
-    "裙": "dress",
-    "连衣裙": "dress",
-    "白": "white",
-    "黑": "black",
-    "蓝": "blue",
-    "红": "red",
-    "绿": "green",
-    "波点": "polka-dot",
-    "圆点": "polka-dot",
+    alias: value for alias, (_kind, value) in SEARCH_ALIASES_BY_KIND.items()
 }
 
 

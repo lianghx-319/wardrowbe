@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, Search, Heart, Grid3X3, Loader2, AlertCircle, RefreshCw, Droplets, ArrowUpDown, SlidersHorizontal, X } from 'lucide-react';
@@ -31,7 +31,9 @@ import { useImmichConnection, useScanImmich } from '@/lib/hooks/use-immich';
 import { useUserProfile } from '@/lib/hooks/use-user';
 import { CLOTHING_TYPES, CLOTHING_COLORS, Item } from '@/lib/types';
 import { TYPE_ZH, itemColorZh, itemTitleZh, itemTypeZh } from '@/lib/zh-labels';
+import { itemMatchesKeywordSearch } from '@/lib/item-search';
 import { toast } from 'sonner';
+import { getDisplayImageUrl } from '@/lib/image-url';
 import { formatWornAgo, getWornAgoColorClass } from '@/lib/utils';
 
 const SORT_OPTIONS = [
@@ -89,9 +91,9 @@ function ItemCard({
       onClick={onClick}
     >
       <div className="relative aspect-square bg-muted">
-        {item.thumbnail_url ? (
+        {getDisplayImageUrl(item) ? (
           <Image
-            src={item.thumbnail_url}
+            src={getDisplayImageUrl(item)!}
             alt={displayTitle}
             fill
             className="object-cover"
@@ -271,17 +273,21 @@ export default function WardrobePage() {
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortOption = SORT_OPTIONS[sortIndex];
+  const normalizedSearch = search.trim();
 
-  const filters = {
-    search: search || undefined,
-    type: typeFilter !== 'all' ? typeFilter : undefined,
-    needs_wash: needsWash,
-    favorite: favoriteFilter,
-    possible_duplicate: possibleDuplicateFilter,
-    is_archived: false,
-    sort_by: sortOption.value,
-    sort_order: sortOption.order,
-  };
+  const filters = useMemo(
+    () => ({
+      search: normalizedSearch || undefined,
+      type: typeFilter !== 'all' ? typeFilter : undefined,
+      needs_wash: needsWash,
+      favorite: favoriteFilter,
+      possible_duplicate: possibleDuplicateFilter,
+      is_archived: false,
+      sort_by: sortOption.value,
+      sort_order: sortOption.order,
+    }),
+    [normalizedSearch, typeFilter, needsWash, favoriteFilter, possibleDuplicateFilter, sortOption]
+  );
 
   const activeFilterCount = [
     needsWash !== undefined,
@@ -301,21 +307,27 @@ export default function WardrobePage() {
 
   const items = data?.items || [];
   const total = data?.total || 0;
+  const searchFilteredItems = useMemo(
+    () => (normalizedSearch ? items.filter((item) => itemMatchesKeywordSearch(item, normalizedSearch)) : items),
+    [items, normalizedSearch]
+  );
+  const visibleItems = normalizedSearch ? searchFilteredItems : items;
+  const visibleTotal = normalizedSearch ? searchFilteredItems.length : total;
 
   // Get selected item: try from list first, then fetch individually (for deep-link from outfit pages)
-  const listItem = detailItemId ? items.find((i) => i.id === detailItemId) || null : null;
+  const listItem = detailItemId ? visibleItems.find((i) => i.id === detailItemId) || null : null;
   const { data: fetchedItem } = useItem(detailItemId && !listItem ? detailItemId : '');
   const detailItem = listItem || fetchedItem || null;
 
   // Count items being processed or with errors
-  const processingCount = items.filter((i) => i.status === 'processing').length;
-  const errorCount = items.filter((i) => i.status === 'error').length;
-  const possibleDuplicateCount = items.filter((i) => i.possible_duplicate).length;
+  const processingCount = visibleItems.filter((i) => i.status === 'processing').length;
+  const errorCount = visibleItems.filter((i) => i.status === 'error').length;
+  const possibleDuplicateCount = visibleItems.filter((i) => i.possible_duplicate).length;
 
   // Clear selection when filters change (but not page - allow cross-page selection)
   useEffect(() => {
     setSelection({ mode: 'none', selectedIds: new Set(), excludedIds: new Set() });
-  }, [search, typeFilter, needsWash, favoriteFilter, possibleDuplicateFilter, sortIndex]);
+  }, [normalizedSearch, typeFilter, needsWash, favoriteFilter, possibleDuplicateFilter, sortIndex]);
 
   const handleRetry = (itemId: string) => {
     reanalyze.mutate(itemId);
@@ -369,7 +381,7 @@ export default function WardrobePage() {
         excluded_ids: Array.from(selection.excludedIds),
         filters: {
           type: typeFilter !== 'all' ? typeFilter : undefined,
-          search: search || undefined,
+          search: normalizedSearch || undefined,
           needs_wash: needsWash,
           favorite: favoriteFilter,
           possible_duplicate: possibleDuplicateFilter,
@@ -465,7 +477,7 @@ export default function WardrobePage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            衣橱中共有 {total} 件物品
+            衣橱中共有 {visibleTotal} 件物品
           </p>
           {(processingCount > 0 || errorCount > 0 || possibleDuplicateCount > 0) && (
             <div className="flex items-center gap-2 mt-2">
@@ -677,8 +689,8 @@ export default function WardrobePage() {
             <ItemCardSkeleton key={i} />
           ))}
         </div>
-      ) : items.length === 0 ? (
-        search || typeFilter !== 'all' || needsWash !== undefined || favoriteFilter !== undefined || possibleDuplicateFilter !== undefined ? (
+      ) : visibleItems.length === 0 ? (
+        normalizedSearch || typeFilter !== 'all' || needsWash !== undefined || favoriteFilter !== undefined || possibleDuplicateFilter !== undefined ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">
               没有找到符合筛选条件的衣物。
@@ -703,7 +715,7 @@ export default function WardrobePage() {
         )
       ) : (
         <div className="grid grid-cols-2 gap-3 pb-20 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             // Determine if item is selected based on selection mode
             const isSelected = selection.mode === 'all'
               ? !selection.excludedIds.has(item.id)
@@ -725,8 +737,8 @@ export default function WardrobePage() {
 
       <BulkActionToolbar
         selection={selection}
-        totalItems={total}
-        pageItems={items.length}
+        totalItems={visibleTotal}
+        pageItems={visibleItems.length}
         onSelectAll={handleSelectAll}
         onClear={handleClearSelection}
         onDelete={handleBulkDelete}

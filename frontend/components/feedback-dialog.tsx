@@ -18,6 +18,7 @@ import { useItems } from '@/lib/hooks/use-items';
 import { cn } from '@/lib/utils';
 import { TYPE_ZH } from '@/lib/zh-labels';
 import Image from 'next/image';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 function StarRating({
   rating,
@@ -65,8 +66,10 @@ interface AccumulatedItem {
   type: string;
   thumbnail_path?: string;
   thumbnail_url?: string;
-  image_path: string;
+  medium_url?: string | null;
+  image_path?: string;
   image_url?: string;
+  image_source?: 'local' | 'immich';
   is_archived: boolean;
 }
 
@@ -86,9 +89,7 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setPage(1); // Reset to first page on search
-      setAccumulatedItems([]); // Clear accumulated items on new search
+      setDebouncedSearch(searchQuery.trim());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -152,6 +153,15 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
       setPage((p) => p + 1);
     }
   }, [hasMore, isFetching]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+    setAccumulatedItems([]);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  };
 
   // Handle scroll for infinite loading
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -315,7 +325,7 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
               <Input
                 placeholder="搜索衣橱..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -336,40 +346,52 @@ export function FeedbackDialog({ outfit, open, onClose }: FeedbackDialogProps) {
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {wardrobeItems
                   .filter((item) => !outfitItemIds.has(item.id))
-                  .map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleItemSelection(item.id)}
-                      className={cn(
-                        'relative aspect-square rounded-lg overflow-hidden border-2 transition-all',
-                        selectedItems.includes(item.id)
-                          ? 'border-primary ring-2 ring-primary/20'
-                          : 'border-border hover:border-muted-foreground/50'
-                      )}
-                    >
-                      <Image
-                        src={item.thumbnail_url || item.image_url || item.image_path}
-                        alt={item.name || item.type}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 33vw, 25vw"
-                        loading="lazy"
-                      />
-                      {selectedItems.includes(item.id) && (
-                        <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
-                          <div className="rounded-full bg-primary p-1.5 shadow-lg">
-                            <Check className="h-4 w-4 text-primary-foreground" />
+                  .map((item) => {
+                    const imageSrc = getDisplayImageUrl(item);
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleItemSelection(item.id)}
+                        className={cn(
+                          'relative aspect-square rounded-lg overflow-hidden border-2 transition-all',
+                          selectedItems.includes(item.id)
+                            ? 'border-primary ring-2 ring-primary/20'
+                            : 'border-border hover:border-muted-foreground/50'
+                        )}
+                      >
+                        {imageSrc ? (
+                          <Image
+                            src={imageSrc}
+                            alt={item.name || item.type}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 33vw, 25vw"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <span className="text-xs text-muted-foreground">
+                              {item.name || TYPE_ZH[item.type] || item.type}
+                            </span>
                           </div>
+                        )}
+                        {selectedItems.includes(item.id) && (
+                          <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                            <div className="rounded-full bg-primary p-1.5 shadow-lg">
+                              <Check className="h-4 w-4 text-primary-foreground" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
+                          <span className="text-[10px] sm:text-xs text-white font-medium truncate block">
+                            {item.name || TYPE_ZH[item.type] || item.type}
+                          </span>
                         </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                        <span className="text-[10px] sm:text-xs text-white font-medium truncate block">
-                          {item.name || TYPE_ZH[item.type] || item.type}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
               </div>
 
               {/* Loading states */}

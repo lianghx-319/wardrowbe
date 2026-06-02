@@ -9,6 +9,7 @@ import { useItems } from '@/lib/hooks/use-items';
 import { cn } from '@/lib/utils';
 import type { Item } from '@/lib/types';
 import { itemTitleZh } from '@/lib/zh-labels';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 const PAGE_SIZE = 24;
 
@@ -33,15 +34,11 @@ export function ItemPicker({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [accumulatedItems, setAccumulatedItems] = useState<Item[]>([]);
-  const [accVersion, setAccVersion] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setPage(1);
-      setAccumulatedItems([]);
-      setAccVersion((v) => v + 1);
+      setDebouncedSearch(searchQuery.trim());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -74,10 +71,18 @@ export function ItemPicker({
         });
       }
     }
-  }, [itemsData?.items, page, accVersion]);
+  }, [itemsData?.items, page]);
 
-  const items =
-    accumulatedItems.length > 0 ? accumulatedItems : itemsData?.items ?? [];
+  const items = accumulatedItems;
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+    setAccumulatedItems([]);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  };
 
   const loadMore = useCallback(() => {
     if (hasMore && !isFetching) {
@@ -102,7 +107,7 @@ export function ItemPicker({
         <Input
           placeholder="搜索衣橱..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="pl-9 h-9"
         />
       </div>
@@ -115,6 +120,8 @@ export function ItemPicker({
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
           {items.map((item) => {
             const isSelected = selectedIds.has(item.id);
+            const imageSrc = getDisplayImageUrl(item);
+
             return (
               <button
                 key={item.id}
@@ -127,9 +134,9 @@ export function ItemPicker({
                     : 'border-border hover:border-muted-foreground/50'
                 )}
               >
-                {item.thumbnail_url || item.image_url ? (
+                {imageSrc ? (
                   <Image
-                    src={(item.thumbnail_url || item.image_url)!}
+                    src={imageSrc}
                     alt={item.name || item.type}
                     fill
                     className="object-cover"

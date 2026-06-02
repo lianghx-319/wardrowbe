@@ -1,5 +1,3 @@
-import type { Item } from '@/lib/types';
-
 export const TYPE_ZH: Record<string, string> = {
   shirt: '衬衫',
   't-shirt': 'T 恤',
@@ -131,14 +129,24 @@ export const WARMTH_ZH: Record<string, string> = {
   'very-warm': '非常保暖',
 };
 
-export function itemTypeZh(item: Item): string {
+type LabelItem = {
+  type: string;
+  name?: string | null;
+  primary_color?: string | null;
+  tags_zh?: {
+    type?: string | null;
+    primary_color?: string | null;
+  } | null;
+};
+
+export function itemTypeZh(item: LabelItem): string {
   return item.tags_zh?.type || TYPE_ZH[item.type] || item.type;
 }
 
-export function itemColorZh(item: Item): string | undefined {
+export function itemColorZh(item: LabelItem): string | undefined {
   return item.tags_zh?.primary_color || (item.primary_color ? COLOR_ZH[item.primary_color] : undefined);
 }
 
-export function itemTitleZh(item: Item): string {
+export function itemTitleZh(item: LabelItem): string {
   return item.name || itemTypeZh(item);
 }

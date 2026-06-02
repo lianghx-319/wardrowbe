@@ -11,7 +11,7 @@ from sqlalchemy.orm import attributes, selectinload
 from app.models.item import ClothingItem, ImageSource, ItemHistory, ItemStatus, WashHistory
 from app.schemas.item import DEFAULT_WASH_INTERVALS, ItemCreate, ItemFilter, ItemUpdate
 from app.utils.ai_queue import analysis_queued_response
-from app.utils.zh_labels import expand_search_terms
+from app.utils.zh_labels import SearchToken, parse_keyword_search
 
 
 def should_use_immich_search(search: str) -> bool:
@@ -85,9 +85,11 @@ class ItemService:
             query = query.where(ClothingItem.needs_wash == filters.needs_wash)
 
         # Search filter
-        if filters.search:
-            conditions = await self._build_search_conditions(user_id, filters.search)
-            query = query.where(or_(*conditions))
+        search = filters.search.strip() if filters.search else None
+        if search:
+            search_clause = await self._build_keyword_search_clause(user_id, search)
+            if search_clause is not None:
+                query = query.where(search_clause)
 
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
@@ -114,34 +116,67 @@ class ItemService:
 
         return items, total
 
-    async def _build_search_conditions(self, user_id: UUID, search: str) -> list:
-        conditions = []
-        for term in expand_search_terms(search):
-            search_term = f"%{term}%"
-            conditions.extend(
-                [
-                    ClothingItem.name.ilike(search_term),
-                    ClothingItem.brand.ilike(search_term),
-                    ClothingItem.type.ilike(search_term),
-                    ClothingItem.subtype.ilike(search_term),
-                    ClothingItem.primary_color.ilike(search_term),
-                    ClothingItem.pattern.ilike(search_term),
-                    ClothingItem.material.ilike(search_term),
-                    ClothingItem.notes.ilike(search_term),
-                    ClothingItem.ai_description.ilike(search_term),
-                    ClothingItem.ai_description_zh.ilike(search_term),
-                    ClothingItem.immich_original_filename.ilike(search_term),
-                    ClothingItem.tags.cast(String).ilike(search_term),
-                    ClothingItem.tags_zh.cast(String).ilike(search_term),
-                ]
+    async def _build_keyword_search_clause(self, user_id: UUID, search: str):
+        token_clauses = []
+        for token in parse_keyword_search(search):
+            clause = await self._build_keyword_token_clause(user_id, token)
+            if clause is not None:
+                token_clauses.append(clause)
+        if not token_clauses:
+            return None
+        return and_(*token_clauses)
+
+    async def _build_keyword_token_clause(self, user_id: UUID, token: SearchToken):
+        if token.kind == "type":
+            return ClothingItem.type == token.value
+
+        if token.kind == "color":
+            return or_(
+                ClothingItem.primary_color == token.value,
+                ClothingItem.colors.overlap([token.value]),
             )
 
-        if should_use_immich_search(search):
-            asset_ids = await self._get_immich_search_asset_ids(user_id, search)
-            if asset_ids:
-                conditions.append(ClothingItem.immich_asset_id.in_(asset_ids))
+        if token.kind == "metadata":
+            aliases = [alias for alias in token.aliases if alias]
+            exact_clauses = [
+                ClothingItem.pattern == token.value,
+                ClothingItem.material == token.value,
+                ClothingItem.formality == token.value,
+                ClothingItem.style.overlap([token.value]),
+                ClothingItem.season.overlap([token.value]),
+            ]
+            tag_clauses = [
+                ClothingItem.tags.cast(String).ilike(f"%{alias}%") for alias in aliases
+            ] + [
+                ClothingItem.tags_zh.cast(String).ilike(f"%{alias}%") for alias in aliases
+            ]
+            return or_(*exact_clauses, *tag_clauses)
 
-        return conditions
+        search_term = f"%{token.value}%"
+        text_clauses = [
+            ClothingItem.name.ilike(search_term),
+            ClothingItem.brand.ilike(search_term),
+            ClothingItem.type.ilike(search_term),
+            ClothingItem.subtype.ilike(search_term),
+            ClothingItem.primary_color.ilike(search_term),
+            ClothingItem.pattern.ilike(search_term),
+            ClothingItem.material.ilike(search_term),
+            ClothingItem.formality.ilike(search_term),
+            ClothingItem.notes.ilike(search_term),
+            ClothingItem.immich_original_filename.ilike(search_term),
+            ClothingItem.colors.cast(String).ilike(search_term),
+            ClothingItem.style.cast(String).ilike(search_term),
+            ClothingItem.season.cast(String).ilike(search_term),
+            ClothingItem.tags.cast(String).ilike(search_term),
+            ClothingItem.tags_zh.cast(String).ilike(search_term),
+        ]
+
+        if should_use_immich_search(token.value):
+            asset_ids = await self._get_immich_search_asset_ids(user_id, token.value)
+            if asset_ids:
+                text_clauses.append(ClothingItem.immich_asset_id.in_(asset_ids))
+
+        return or_(*text_clauses)
 
     async def _get_immich_search_asset_ids(self, user_id: UUID, search: str) -> list[str]:
         try:
@@ -170,9 +205,11 @@ class ItemService:
         if possible_duplicate is not None:
             query = query.where(ClothingItem.possible_duplicate == possible_duplicate)
 
-        if search:
-            conditions = await self._build_search_conditions(user_id, search)
-            query = query.where(or_(*conditions))
+        normalized_search = search.strip() if search else None
+        if normalized_search:
+            search_clause = await self._build_keyword_search_clause(user_id, normalized_search)
+            if search_clause is not None:
+                query = query.where(search_clause)
 
         if excluded_ids:
             query = query.where(ClothingItem.id.notin_(excluded_ids))

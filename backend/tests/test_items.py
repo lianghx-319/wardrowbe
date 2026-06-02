@@ -99,6 +99,99 @@ class TestItemList:
         assert len(data["items"]) == 2
         assert all(item["type"] == "shirt" for item in data["items"])
 
+    @pytest.mark.asyncio
+    async def test_list_items_filter_by_search(
+        self, client: AsyncClient, test_user, auth_headers, db_session: AsyncSession
+    ):
+        """Test searching items by text metadata."""
+        items = [
+            ClothingItem(
+                user_id=test_user.id,
+                type="shirt",
+                name="Blue Oxford Shirt",
+                brand="Uniqlo",
+                image_path=f"test/{uuid4()}.jpg",
+                status=ItemStatus.ready,
+            ),
+            ClothingItem(
+                user_id=test_user.id,
+                type="pants",
+                name="Black Chinos",
+                image_path=f"test/{uuid4()}.jpg",
+                status=ItemStatus.ready,
+            ),
+            ClothingItem(
+                user_id=test_user.id,
+                type="dress",
+                name="IMG_4794",
+                primary_color="blue",
+                colors=["blue"],
+                ai_description_zh="浅蓝色连衣裙，描述里提到了短裤作为搭配参考。",
+                image_path=f"test/{uuid4()}.jpg",
+                status=ItemStatus.ready,
+            ),
+            ClothingItem(
+                user_id=test_user.id,
+                type="shorts",
+                name="Linen Shorts",
+                primary_color="beige",
+                colors=["beige"],
+                image_path=f"test/{uuid4()}.jpg",
+                status=ItemStatus.ready,
+            ),
+            ClothingItem(
+                user_id=test_user.id,
+                type="shorts",
+                name="Blue Running Shorts",
+                primary_color="blue",
+                colors=["blue"],
+                image_path=f"test/{uuid4()}.jpg",
+                status=ItemStatus.ready,
+            ),
+        ]
+        db_session.add_all(items)
+        await db_session.commit()
+
+        response = await client.get(
+            "/api/v1/items",
+            params={"search": "  oxford  "},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "Blue Oxford Shirt"
+
+        response = await client.get(
+            "/api/v1/items",
+            params={"search": "裤子"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["type"] == "pants"
+
+        response = await client.get(
+            "/api/v1/items",
+            params={"search": "短裤"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert {item["type"] for item in data["items"]} == {"shorts"}
+
+        response = await client.get(
+            "/api/v1/items",
+            params={"search": "蓝色 短裤"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "Blue Running Shorts"
+
 
 class TestItemCRUD:
     """Tests for item CRUD operations."""
