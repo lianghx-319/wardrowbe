@@ -295,6 +295,7 @@ See the [k8s/](k8s/) directory for Kubernetes manifests including:
 | `NEXTAUTH_SECRET` | NextAuth session encryption | Yes |
 | `AI_BASE_URL` | AI service URL | Yes |
 | `AI_API_KEY` | AI API key (if required) | Depends |
+| `WORKER_MAX_JOBS` | Background worker concurrency; default `1` processes AI analysis one item at a time | No |
 | `OIDC_ISSUER_URL` | OIDC provider URL (enables SSO login) | No |
 | `OIDC_CLIENT_ID` | OIDC client ID | If OIDC |
 | `OIDC_CLIENT_SECRET` | OIDC client secret | If OIDC |

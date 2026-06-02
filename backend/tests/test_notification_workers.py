@@ -359,6 +359,9 @@ class TestProcessScheduledNotification:
 
 
 class TestWorkerFunctionRegistry:
+    def test_worker_processes_jobs_serially_by_default(self):
+        assert WorkerSettings.max_jobs == 1
+
     def test_process_scheduled_notification_is_registered(self):
         func_names = [f.__name__ for f in WorkerSettings.functions]
         assert "process_scheduled_notification" in func_names

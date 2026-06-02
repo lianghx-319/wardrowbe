@@ -122,6 +122,7 @@ services:
       AI_FALLBACK_TEXT_MODEL: ${AI_FALLBACK_TEXT_MODEL:-}
       AI_TIMEOUT: ${AI_TIMEOUT:-120}
       AI_MAX_RETRIES: ${AI_MAX_RETRIES:-3}
+      WORKER_MAX_JOBS: ${WORKER_MAX_JOBS:-1}
       STORAGE_PATH: /data/wardrobe
     volumes:
       - wardrobe_data:/data/wardrobe

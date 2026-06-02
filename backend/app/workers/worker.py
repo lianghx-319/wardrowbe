@@ -2,11 +2,12 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from arq import cron
-from sqlalchemy import update
+from sqlalchemy import or_, update
 
 from app.config import get_settings
 from app.models.item import ClothingItem, ItemStatus
 from app.services.ai_service import AIService
+from app.utils.ai_queue import AI_QUEUE_STATUS_KEY, AI_QUEUE_STATUS_QUEUED
 from app.workers.db import close_db, get_db_session, init_db
 from app.workers.notifications import (
     check_scheduled_notifications,
@@ -27,11 +28,20 @@ settings = get_settings()
 async def recover_stale_processing_items(ctx: dict) -> None:
     timeout = settings.ai_timeout * settings.ai_max_retries + 120
     cutoff = datetime.now(UTC) - timedelta(seconds=timeout)
+    queue_status = ClothingItem.ai_raw_response[AI_QUEUE_STATUS_KEY].astext
     db = get_db_session(ctx)
     try:
         result = await db.execute(
             update(ClothingItem)
-            .where(ClothingItem.status == ItemStatus.processing, ClothingItem.updated_at < cutoff)
+            .where(
+                ClothingItem.status == ItemStatus.processing,
+                ClothingItem.updated_at < cutoff,
+                or_(
+                    ClothingItem.ai_raw_response.is_(None),
+                    queue_status.is_(None),
+                    queue_status != AI_QUEUE_STATUS_QUEUED,
+                ),
+            )
             .values(status=ItemStatus.error, ai_raw_response={"error": "Processing timed out"})
         )
         await db.commit()
@@ -80,8 +90,8 @@ class WorkerSettings:
 
     redis_settings = get_redis_settings()
 
-    max_jobs = 5
-    job_timeout = max(get_settings().ai_timeout * get_settings().ai_max_retries + 60, 600)
+    max_jobs = settings.worker_max_jobs
+    job_timeout = max(settings.ai_timeout * settings.ai_max_retries + 60, 600)
     max_tries = 3
     health_check_interval = 30
 

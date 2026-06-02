@@ -62,6 +62,34 @@ class TestRecoverStaleProcessingItems:
         assert updated.status == ItemStatus.processing
 
     @pytest.mark.asyncio
+    async def test_does_not_touch_queued_processing_items(self, db_session: AsyncSession, test_user):
+        item = ClothingItem(
+            user_id=test_user.id,
+            type="shirt",
+            image_path="test/queued.jpg",
+            status=ItemStatus.processing,
+            ai_raw_response={"queue_status": "queued"},
+        )
+        db_session.add(item)
+        await db_session.commit()
+        item_id = item.id
+
+        future = datetime.now(UTC) + timedelta(hours=3)
+        with (
+            patch("app.workers.worker.get_db_session", return_value=db_session),
+            patch.object(db_session, "close", new_callable=AsyncMock),
+            patch("app.workers.worker.datetime") as mock_dt,
+        ):
+            mock_dt.now.return_value = future
+            mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
+            await recover_stale_processing_items({})
+
+        result = await db_session.execute(select(ClothingItem).where(ClothingItem.id == item_id))
+        updated = result.scalar_one()
+        assert updated.status == ItemStatus.processing
+        assert updated.ai_raw_response == {"queue_status": "queued"}
+
+    @pytest.mark.asyncio
     async def test_does_not_touch_ready_items(self, db_session: AsyncSession, test_user):
         item = ClothingItem(
             user_id=test_user.id,

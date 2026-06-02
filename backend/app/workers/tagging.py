@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.item import ClothingItem, ImageSource, ItemStatus
 from app.services.immich_service import temporary_asset_file
 from app.services.ai_service import AIService, ClothingTags
+from app.utils.ai_queue import analysis_processing_response
 from app.utils.zh_labels import build_zh_tags
 from app.workers.db import get_db_session
 
@@ -108,7 +109,26 @@ async def update_item_status_to_error(ctx: dict, item_id: str, error_msg: str) -
         logger.error(f"Failed to update item {item_id} status to error: {e}")
 
 
-async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, Any]:
+def mark_item_analysis_started(item: ClothingItem) -> None:
+    item.status = ItemStatus.processing
+    item.ai_raw_response = analysis_processing_response()
+
+
+async def mark_item_analysis_started_by_id(ctx: dict, item_id: str) -> None:
+    db = get_db_session(ctx)
+    try:
+        result = await db.execute(select(ClothingItem).where(ClothingItem.id == UUID(item_id)))
+        item = result.scalar_one_or_none()
+        if item:
+            mark_item_analysis_started(item)
+            await db.commit()
+    finally:
+        await db.close()
+
+
+async def tag_item_image(
+    ctx: dict, item_id: str, image_path: str, mark_started: bool = True
+) -> dict[str, Any]:
     """
     Analyze an item's image and update it with AI-generated tags.
 
@@ -130,6 +150,9 @@ async def tag_item_image(ctx: dict, item_id: str, image_path: str) -> dict[str, 
             logger.error(error_msg)
             await update_item_status_to_error(ctx, item_id, error_msg)
             return {"status": "error", "error": "Image not found"}
+
+        if mark_started:
+            await mark_item_analysis_started_by_id(ctx, item_id)
 
         # Get user's AI endpoints from preferences
         ai_endpoints = None
@@ -245,15 +268,23 @@ async def tag_item_by_id(ctx: dict, item_id: str) -> dict[str, Any]:
         if not item:
             return {"status": "error", "error": "Item not found"}
 
+        mark_item_analysis_started(item)
+        await db.commit()
+
         if item.image_source == ImageSource.immich:
             async with temporary_asset_file(item, db) as path:
-                return await tag_item_image(ctx, item_id, str(path))
+                return await tag_item_image(ctx, item_id, str(path), mark_started=False)
 
         if item.image_path:
             from app.config import get_settings
 
             settings = get_settings()
-            return await tag_item_image(ctx, item_id, f"{settings.storage_path}/{item.image_path}")
+            return await tag_item_image(
+                ctx,
+                item_id,
+                f"{settings.storage_path}/{item.image_path}",
+                mark_started=False,
+            )
 
         error_msg = "Item has no image source"
         await update_item_status_to_error(ctx, item_id, error_msg)

@@ -76,6 +76,11 @@ spec:
                 configMapKeyRef:
                   name: wardrobe-config
                   key: AI_MAX_RETRIES
+            - name: WORKER_MAX_JOBS
+              valueFrom:
+                configMapKeyRef:
+                  name: wardrobe-config
+                  key: WORKER_MAX_JOBS
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:

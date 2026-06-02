@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     ai_max_retries: int = Field(default=3)
     ai_max_tokens: int = Field(default=8000)
 
+    # Background worker
+    worker_max_jobs: int = Field(
+        default=1,
+        ge=1,
+        description="Maximum concurrent jobs for the arq worker. Keep at 1 for serial AI analysis.",
+    )
+
     # Weather
     openmeteo_url: str = Field(default="https://api.open-meteo.com/v1")
 
