@@ -1,5 +1,17 @@
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
+
+
+class MockResponse:
+    def __init__(self, status_code: int, data: dict):
+        self.status_code = status_code
+        self._data = data
+
+    def json(self) -> dict:
+        return self._data
 
 
 class TestPreferencesEndpoints:
@@ -84,6 +96,44 @@ class TestAIEndpointPreferences:
             headers=auth_headers,
         )
         assert response.status_code != 400
+
+    @pytest.mark.asyncio
+    async def test_test_ai_endpoint_supports_openai_models(
+        self, client: AsyncClient, test_user, auth_headers
+    ):
+        mock_get = AsyncMock(
+            return_value=MockResponse(
+                200,
+                {
+                    "data": [
+                        {"id": "gpt-5.5"},
+                        {"id": "gpt-5.4-mini"},
+                        {"id": "gpt-image-1"},
+                    ]
+                },
+            )
+        )
+
+        with (
+            patch("httpx.AsyncClient.get", mock_get),
+            patch("app.api.preferences.get_settings", return_value=SimpleNamespace(ai_api_key="k")),
+        ):
+            response = await client.post(
+                "/api/v1/users/me/preferences/test-ai-endpoint",
+                json={"url": "http://sub2api.local/v1"},
+                headers=auth_headers,
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "connected"
+        assert data["available_models"] == ["gpt-5.5", "gpt-5.4-mini", "gpt-image-1"]
+        assert data["vision_models"] == ["gpt-5.5", "gpt-5.4-mini"]
+        assert data["text_models"] == ["gpt-5.5", "gpt-5.4-mini"]
+        mock_get.assert_awaited_once_with(
+            "http://sub2api.local/v1/models",
+            headers={"Authorization": "Bearer k"},
+        )
 
 
 class TestPreferenceValidation:

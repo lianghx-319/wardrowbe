@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.preference import PreferenceResponse, PreferenceUpdate
@@ -56,6 +57,41 @@ def _build_preference_response(preferences) -> PreferenceResponse:
         else "moderate",
         ai_endpoints=preferences.ai_endpoints if preferences.ai_endpoints is not None else [],
     )
+
+
+def _categorize_model_names(model_names: list[str]) -> tuple[list[str], list[str]]:
+    non_chat_markers = [
+        "embedding",
+        "moderation",
+        "realtime",
+        "transcribe",
+        "tts",
+        "whisper",
+        "dall-e",
+        "gpt-image",
+    ]
+    vision_markers = [
+        "gpt-5",
+        "gpt-4.1",
+        "gpt-4o",
+        "vision",
+        "llava",
+        "bakllava",
+        "moondream",
+        "qwen-vl",
+        "qwen2-vl",
+        "qwen2.5vl",
+    ]
+
+    text_models = [
+        name
+        for name in model_names
+        if not any(marker in name.lower() for marker in non_chat_markers)
+    ]
+    vision_models = [
+        name for name in text_models if any(marker in name.lower() for marker in vision_markers)
+    ]
+    return vision_models, text_models
 
 
 @router.get("", response_model=PreferenceResponse)
@@ -132,6 +168,26 @@ async def test_ai_endpoint(
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
+            headers = {}
+            settings = get_settings()
+            if settings.ai_api_key:
+                headers["Authorization"] = f"Bearer {settings.ai_api_key}"
+
+            # Try OpenAI-compatible /v1/models endpoint first.
+            response = await client.get(f"{url}/models", headers=headers)
+
+            if response.status_code == 200:
+                models = response.json().get("data", [])
+                model_names = [m.get("id", "") for m in models if m.get("id")]
+                vision_models, text_models = _categorize_model_names(model_names)
+
+                return {
+                    "status": "connected",
+                    "available_models": model_names,
+                    "vision_models": vision_models,
+                    "text_models": text_models,
+                }
+
             # Try Ollama-style health check
             health_url = url.replace("/v1", "/api/tags")
             response = await client.get(health_url)
@@ -141,13 +197,7 @@ async def test_ai_endpoint(
                 models = data.get("models", [])
                 model_names = [m.get("name", "") for m in models]
 
-                # Categorize models
-                vision_models = [
-                    m
-                    for m in model_names
-                    if any(v in m.lower() for v in ["moondream", "llava", "bakllava", "vision"])
-                ]
-                text_models = [m for m in model_names if m not in vision_models]
+                vision_models, text_models = _categorize_model_names(model_names)
 
                 return {
                     "status": "connected",
