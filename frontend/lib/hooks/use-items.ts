@@ -34,6 +34,7 @@ export function useItems(filters: ItemFilter = {}, page = 1, pageSize = 20) {
       };
       if (normalizedFilters.type) params.type = normalizedFilters.type;
       if (normalizedFilters.colors?.length) params.colors = normalizedFilters.colors.join(',');
+      if (normalizedFilters.status) params.status = normalizedFilters.status;
       if (normalizedFilters.search) params.search = normalizedFilters.search;
       if (normalizedFilters.favorite !== undefined) params.favorite = String(normalizedFilters.favorite);
       if (normalizedFilters.needs_wash !== undefined) params.needs_wash = String(normalizedFilters.needs_wash);

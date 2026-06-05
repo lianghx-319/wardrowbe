@@ -29,7 +29,7 @@ function EmptyPairings() {
       </div>
       <h3 className="text-lg font-semibold mb-2">暂无搭配</h3>
       <p className="text-muted-foreground mb-6 max-w-sm">
-        从衣橱中选择一件衣物，使用“查找搭配”来发现合适的穿搭组合。
+        从衣橱中选择一件衣物，生成不限定当天条件的搭配灵感；需要结合天气和场景时，请使用“推荐”。
       </p>
       <Button variant="outline" asChild>
         <a href="/dashboard/wardrobe">前往衣橱</a>
@@ -99,7 +99,7 @@ export default function PairingsPage() {
             搭配
           </h1>
           <p className="text-muted-foreground">
-            围绕你的衣物生成的 AI 搭配组合
+            围绕单品保存的搭配灵感，不限定当天的天气和场景
           </p>
         </div>
       </div>

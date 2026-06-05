@@ -47,6 +47,7 @@ export function ItemPicker({
     {
       search: debouncedSearch || undefined,
       is_archived: false,
+      status: 'ready',
       type: filterType,
       needs_wash: hideNeedsWash ? false : undefined,
     },

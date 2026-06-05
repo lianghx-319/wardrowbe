@@ -299,7 +299,7 @@ export function ItemDetailDialog({ item, open, onOpenChange }: ItemDetailDialogP
                 size="icon"
                 onClick={() => setShowPairingsDialog(true)}
                 disabled={item.status !== 'ready'}
-                title="查找可搭配穿搭"
+                title="搭配这件衣物"
               >
                 <Layers className="h-5 w-5" />
               </Button>

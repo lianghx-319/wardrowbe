@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -30,6 +31,7 @@ import {
   Snowflake,
   CalendarDays,
   CloudLightning,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,9 +44,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { api, ApiError, setAccessToken } from '@/lib/api';
-import { OCCASIONS, Outfit, SuggestRequest } from '@/lib/types';
+import { OCCASIONS, Outfit, SuggestRequest, type Item } from '@/lib/types';
 import { useWeather, Weather } from '@/lib/hooks/use-weather';
 import { usePreferences } from '@/lib/hooks/use-preferences';
+import { useItem } from '@/lib/hooks/use-items';
+import { ItemPicker } from '@/components/shared/item-picker';
 import { cn } from '@/lib/utils';
 import { TempUnit, formatTemp, displayValue, toF, toCelsius } from '@/lib/temperature';
 import { OCCASION_ZH, TYPE_ZH, itemTitleZh } from '@/lib/zh-labels';
@@ -106,7 +110,17 @@ interface WeatherOverride {
   condition: 'sunny' | 'cloudy' | 'rainy';
 }
 
-function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weather; isLoading: boolean; temperatureUnit: TempUnit }) {
+function WeatherCard({
+  weather,
+  isLoading,
+  error,
+  temperatureUnit,
+}: {
+  weather?: Weather;
+  isLoading: boolean;
+  error?: unknown;
+  temperatureUnit: TempUnit;
+}) {
   if (isLoading) {
     return (
       <Card className="border-muted">
@@ -116,6 +130,35 @@ function WeatherCard({ weather, isLoading, temperatureUnit }: { weather?: Weathe
             <div className="space-y-2">
               <Skeleton className="h-8 w-24" />
               <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error && !weather) {
+    const isLocationMissing = error instanceof ApiError && error.status === 400;
+    return (
+      <Card className="border-dashed">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
+              {isLocationMissing ? (
+                <MapPin className="h-6 w-6 text-muted-foreground" />
+              ) : (
+                <AlertCircle className="h-6 w-6 text-muted-foreground" />
+              )}
+            </div>
+            <div>
+              <p className="font-medium">
+                {isLocationMissing ? '尚未设置位置' : '天气暂时不可用'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isLocationMissing
+                  ? '在设置中填写位置后，可以获得结合天气的建议'
+                  : '可以稍后重试，或使用自定义天气继续获取建议'}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -303,6 +346,101 @@ function WeatherOverrideSection({
   );
 }
 
+function RequiredItemsSection({
+  selectedItems,
+  limitMessage,
+  onToggle,
+  onRemove,
+  onClearMessage,
+}: {
+  selectedItems: Item[];
+  limitMessage: string | null;
+  onToggle: (item: Item) => void;
+  onRemove: (itemId: string) => void;
+  onClearMessage: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedIds = new Set(selectedItems.map((item) => item.id));
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-semibold">必须搭配</h2>
+            <p className="text-sm text-muted-foreground">
+              可选 1-2 件衣物，推荐会结合天气和场景来补完整套穿搭
+            </p>
+          </div>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="shrink-0 gap-1">
+              {isOpen ? '收起' : selectedItems.length ? '调整' : '选择'}
+              <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+
+        {selectedItems.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedItems.map((item) => {
+              const imageSrc = getDisplayImageUrl(item);
+              return (
+                <div
+                  key={item.id}
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border bg-background px-2 py-1"
+                >
+                  <div className="relative h-7 w-7 overflow-hidden rounded-full bg-muted">
+                    {imageSrc ? (
+                      <Image
+                        src={imageSrc}
+                        alt={item.name || item.type}
+                        fill
+                        className="object-cover"
+                        sizes="28px"
+                      />
+                    ) : (
+                      <Shirt className="m-1.5 h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <span className="max-w-[160px] truncate text-sm font-medium">
+                    {itemTitleZh(item)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(item.id)}
+                    className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={`移除 ${itemTitleZh(item)}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {limitMessage && (
+          <p className="text-xs text-amber-700">{limitMessage}</p>
+        )}
+
+        <CollapsibleContent>
+          <div className="border-t pt-3">
+            <ItemPicker
+              selectedIds={selectedIds}
+              onToggle={(item) => {
+                onClearMessage();
+                onToggle(item);
+              }}
+              emptyMessage="还没有可推荐的衣物"
+              heightClass="h-[300px]"
+            />
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 function OutfitResult({
   outfit,
   occasion,
@@ -452,12 +590,18 @@ function OutfitResult({
 
 export default function SuggestPage() {
   const { data: session } = useSession();
-  const { data: weather, isLoading: weatherLoading } = useWeather();
+  const searchParams = useSearchParams();
+  const requiredItemId = searchParams?.get('required_item') || '';
+  const { data: weather, isLoading: weatherLoading, error: weatherError } = useWeather();
   const { data: prefs } = usePreferences();
+  const { data: linkedRequiredItem } = useItem(requiredItemId);
   const temperatureUnit: TempUnit = prefs?.temperature_unit === 'fahrenheit' ? 'fahrenheit' : 'celsius';
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [occasionInitialized, setOccasionInitialized] = useState(false);
+  const [initializedRequiredItemId, setInitializedRequiredItemId] = useState<string | null>(null);
   const [weatherOverride, setWeatherOverride] = useState<WeatherOverride | null>(null);
+  const [requiredItems, setRequiredItems] = useState<Item[]>([]);
+  const [requiredLimitMessage, setRequiredLimitMessage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -468,6 +612,42 @@ export default function SuggestPage() {
       setOccasionInitialized(true);
     }
   }, [prefs, occasionInitialized, selectedOccasion]);
+
+  useEffect(() => {
+    if (!requiredItemId || initializedRequiredItemId === requiredItemId || !linkedRequiredItem) {
+      return;
+    }
+
+    setRequiredItems((current) => {
+      if (current.some((item) => item.id === linkedRequiredItem.id)) {
+        return current;
+      }
+      return [linkedRequiredItem, ...current].slice(0, 2);
+    });
+    setInitializedRequiredItemId(requiredItemId);
+  }, [requiredItemId, linkedRequiredItem, initializedRequiredItemId]);
+
+  const handleRequiredItemToggle = (item: Item) => {
+    setRequiredItems((current) => {
+      if (current.some((selected) => selected.id === item.id)) {
+        setRequiredLimitMessage(null);
+        return current.filter((selected) => selected.id !== item.id);
+      }
+
+      if (current.length >= 2) {
+        setRequiredLimitMessage('最多选择 2 件必须搭配的衣物');
+        return current;
+      }
+
+      setRequiredLimitMessage(null);
+      return [...current, item];
+    });
+  };
+
+  const handleRequiredItemRemove = (itemId: string) => {
+    setRequiredLimitMessage(null);
+    setRequiredItems((current) => current.filter((item) => item.id !== itemId));
+  };
 
   const handleGenerate = async () => {
     if (!selectedOccasion) return;
@@ -483,6 +663,10 @@ export default function SuggestPage() {
       const request: SuggestRequest = {
         occasion: selectedOccasion,
       };
+
+      if (requiredItems.length > 0) {
+        request.include_items = requiredItems.map((item) => item.id);
+      }
 
       if (weatherOverride) {
         request.weather_override = {
@@ -519,6 +703,8 @@ export default function SuggestPage() {
       await api.post(`/outfits/${outfit.id}/accept`);
       setOutfit(null);
       setSelectedOccasion(null);
+      setRequiredItems([]);
+      setRequiredLimitMessage(null);
     } catch (err) {
       console.error('Accept error:', err);
     }
@@ -549,6 +735,8 @@ export default function SuggestPage() {
   const handleNewRequest = () => {
     setOutfit(null);
     setSelectedOccasion(null);
+    setRequiredItems([]);
+    setRequiredLimitMessage(null);
     setError(null);
   };
 
@@ -572,7 +760,12 @@ export default function SuggestPage() {
       {!outfit ? (
         <div className="space-y-6">
           {/* Weather context */}
-          <WeatherCard weather={weather} isLoading={weatherLoading} temperatureUnit={temperatureUnit} />
+          <WeatherCard
+            weather={weather}
+            isLoading={weatherLoading}
+            error={weatherError}
+            temperatureUnit={temperatureUnit}
+          />
 
           {/* Main selection card */}
           <Card>
@@ -591,6 +784,14 @@ export default function SuggestPage() {
                 weather={weatherOverride}
                 onChange={setWeatherOverride}
                 temperatureUnit={temperatureUnit}
+              />
+
+              <RequiredItemsSection
+                selectedItems={requiredItems}
+                limitMessage={requiredLimitMessage}
+                onToggle={handleRequiredItemToggle}
+                onRemove={handleRequiredItemRemove}
+                onClearMessage={() => setRequiredLimitMessage(null)}
               />
 
               {/* Generate button */}

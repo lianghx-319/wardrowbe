@@ -180,7 +180,7 @@ export function DetailsPanel({
         ) : (
           <>
             <Sparkles className="h-4 w-4 mr-2" />
-            让 AI 补全这套
+            按天气和场景补全
           </>
         )}
       </Button>

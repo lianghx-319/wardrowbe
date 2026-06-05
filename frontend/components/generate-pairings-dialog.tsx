@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Sparkles, Check, AlertCircle } from 'lucide-react';
+import { CalendarDays, Check, Layers, Loader2, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useGeneratePairings } from '@/lib/hooks/use-pairings';
 import { Item, Pairing } from '@/lib/types';
@@ -35,6 +36,7 @@ export function GeneratePairingsDialog({
   onOpenChange,
 }: GeneratePairingsDialogProps) {
   const [numPairings, setNumPairings] = useState(3);
+  const [mode, setMode] = useState<'contextual' | 'inspiration'>('contextual');
   const [generatedPairings, setGeneratedPairings] = useState<Pairing[] | null>(null);
   const generatePairings = useGeneratePairings();
   const router = useRouter();
@@ -55,6 +57,13 @@ export function GeneratePairingsDialog({
     }
   };
 
+  const handleContextualRecommend = () => {
+    if (!item) return;
+    onOpenChange(false);
+    setGeneratedPairings(null);
+    router.push(`/dashboard/suggest?required_item=${item.id}`);
+  };
+
   const handleViewPairings = () => {
     onOpenChange(false);
     setGeneratedPairings(null);
@@ -64,6 +73,7 @@ export function GeneratePairingsDialog({
   const handleClose = () => {
     onOpenChange(false);
     setGeneratedPairings(null);
+    setMode('contextual');
   };
 
   if (!item) return null;
@@ -76,10 +86,10 @@ export function GeneratePairingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            查找可搭配造型
+            搭配这件衣物
           </DialogTitle>
           <DialogDescription>
-            AI 会围绕这件衣物生成完整搭配
+            选择是否结合当前天气和场景
           </DialogDescription>
         </DialogHeader>
 
@@ -113,24 +123,44 @@ export function GeneratePairingsDialog({
               </div>
             </div>
 
-            {/* Number of pairings selector */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>搭配数量</Label>
-                <span className="text-sm font-medium text-primary">{numPairings}</span>
-              </div>
-              <Slider
-                value={[numPairings]}
-                onValueChange={([value]) => setNumPairings(value)}
-                min={1}
-                max={5}
-                step={1}
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">
-                数量越多变化越丰富，但生成时间也会更长
-              </p>
-            </div>
+            <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="contextual" className="gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  天气场景
+                </TabsTrigger>
+                <TabsTrigger value="inspiration" className="gap-2">
+                  <Layers className="h-4 w-4" />
+                  单品灵感
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="contextual" className="space-y-3 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  进入推荐页后选择场景，系统会把这件衣物作为必搭项，并结合当前天气生成穿搭。
+                </p>
+              </TabsContent>
+
+              <TabsContent value="inspiration" className="space-y-3 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  生成不限定当天天气和场景的搭配灵感，适合先收藏多种组合。
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>搭配数量</Label>
+                    <span className="text-sm font-medium text-primary">{numPairings}</span>
+                  </div>
+                  <Slider
+                    value={[numPairings]}
+                    onValueChange={([value]) => setNumPairings(value)}
+                    min={1}
+                    max={5}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         ) : (
           // Success state
@@ -188,22 +218,29 @@ export function GeneratePairingsDialog({
               <Button variant="outline" onClick={handleClose}>
                 取消
               </Button>
-              <Button
-                onClick={handleGenerate}
-                disabled={generatePairings.isPending}
-              >
-                {generatePairings.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    生成搭配
-                  </>
-                )}
-              </Button>
+              {mode === 'contextual' ? (
+                <Button onClick={handleContextualRecommend}>
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  去推荐
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generatePairings.isPending}
+                >
+                  {generatePairings.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      生成灵感
+                    </>
+                  )}
+                </Button>
+              )}
             </>
           ) : (
             <>

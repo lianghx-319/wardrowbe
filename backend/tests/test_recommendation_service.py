@@ -98,6 +98,8 @@ class TestPromptTemplate:
         assert "Time of day" in prompt
         assert "Full day" in prompt
         assert "{time_of_day}" in prompt
+        assert "{required_items_text}" in prompt
+        assert "Simplified Chinese" in prompt
 
     def test_prompt_format_accepts_time_of_day(self):
         from app.services.recommendation_service import RECOMMENDATION_PROMPT
@@ -110,6 +112,7 @@ class TestPromptTemplate:
             condition="clear",
             precipitation_chance=10,
             preferences_text="",
+            required_items_text="",
             items_text="[1] shirt | blue | cotton",
         )
         assert "evening" in formatted
@@ -128,9 +131,23 @@ class TestPromptTemplate:
                 condition="cloudy",
                 precipitation_chance=30,
                 preferences_text="",
+                required_items_text="",
                 items_text="[1] shirt",
             )
             assert tod in formatted
+
+    def test_required_items_prompt(self):
+        service = RecommendationService.__new__(RecommendationService)
+        required_id = uuid4()
+        other_id = uuid4()
+        text = service._format_required_items_for_prompt(
+            [required_id],
+            {1: other_id, 2: required_id},
+        )
+
+        assert "REQUIRED ITEMS" in text
+        assert "[2]" in text
+        assert "MUST include" in text
 
 
 class TestSuggestRequestTimeOfDay:
@@ -370,6 +387,28 @@ class TestFormatItemsEnriched:
 
         text, _ = service._format_items_for_prompt(scored, pairs, today)
         assert "pairs well with:" in text
+
+
+class TestRequiredItemSelection:
+    def test_required_item_wins_body_slot_conflict(self):
+        service = RecommendationService.__new__(RecommendationService)
+        required_shirt = uuid4()
+        other_shirt = uuid4()
+        pants = uuid4()
+
+        result = service._deduplicate_selected_items(
+            [other_shirt, pants, required_shirt],
+            {
+                required_shirt: "shirt",
+                other_shirt: "shirt",
+                pants: "pants",
+            },
+            required_item_ids=[required_shirt],
+        )
+
+        assert required_shirt in result
+        assert other_shirt not in result
+        assert pants in result
 
 
 class TestFormatPrefsOccasion:

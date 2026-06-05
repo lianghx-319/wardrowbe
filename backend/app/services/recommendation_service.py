@@ -26,7 +26,7 @@ from app.services.ai_service import AIService
 from app.services.item_scorer import get_season, score_items
 from app.services.suggestion_cache import pop_suggestion, push_suggestions
 from app.services.weather_service import WeatherData, WeatherService, WeatherServiceError
-from app.utils.clothing import deduplicate_by_body_slot
+from app.utils.clothing import ITEM_ROLE, deduplicate_by_body_slot
 from app.utils.prompts import load_prompt
 from app.utils.timezone import get_user_today
 
@@ -34,11 +34,9 @@ logger = logging.getLogger(__name__)
 
 SINGLE_OUTFIT_FORMAT = (
     "Respond with valid JSON:\n"
-    '{{"items": [item numbers], "headline": "Short catchy outfit title (max 5 words)", '
-    '"highlights": ["One short sentence each — vary your reasoning across color, texture, '
-    'proportion, occasion, weather, or time of day"], '
-    '"styling_tip": "One specific, actionable styling detail — do not suggest rolling up '
-    'sleeves every time, vary your advice"}}'
+    '{{"items": [item numbers], "headline": "中文短标题，最多 8 个汉字", '
+    '"highlights": ["每条用中文写一个简短理由，围绕颜色、材质、比例、场景、天气或时间段变化"], '
+    '"styling_tip": "一条具体、可执行的中文搭配细节；不要总是建议卷袖子，要变化"}}'
 )
 
 
@@ -278,6 +276,92 @@ class RecommendationService:
             lines.append(line)
 
         return "\n".join(lines), number_map
+
+    def _format_required_items_for_prompt(
+        self,
+        required_item_ids: list[UUID],
+        number_map: dict[int, UUID],
+    ) -> str:
+        if not required_item_ids:
+            return ""
+
+        id_to_number = {item_id: num for num, item_id in number_map.items()}
+        required_nums = [
+            id_to_number[item_id] for item_id in required_item_ids if item_id in id_to_number
+        ]
+
+        if not required_nums:
+            return ""
+
+        refs = ", ".join(f"[{num}]" for num in required_nums)
+        return (
+            "\nREQUIRED ITEMS:\n"
+            f"- Every outfit option MUST include {refs}.\n"
+            "- Build around the required item(s), then choose complementary pieces for the weather, "
+            "occasion, and time of day.\n"
+            "- If a required item conflicts with a normal outfit rule, keep the required item and "
+            "adjust the other pieces."
+        )
+
+    def _deduplicate_selected_items(
+        self,
+        selected_item_ids: list[UUID],
+        item_type_map: dict[UUID, str],
+        required_item_ids: list[UUID] | None = None,
+    ) -> list[UUID]:
+        required_item_ids = required_item_ids or []
+        required_set = set(required_item_ids)
+        if not required_set:
+            return deduplicate_by_body_slot(selected_item_ids, item_type_map)
+
+        priority_ids = []
+        for item_id in required_item_ids + selected_item_ids:
+            if item_id not in item_type_map or item_id in priority_ids:
+                continue
+            priority_ids.append(item_id)
+
+        accepted: list[UUID] = []
+        accepted_roles: dict[str, UUID] = {}
+
+        for item_id in priority_ids:
+            item_type = item_type_map.get(item_id, "")
+            role = ITEM_ROLE.get(item_type)
+
+            if not role or role == "accessory":
+                accepted.append(item_id)
+                continue
+
+            if role == "full_body":
+                if any(r in accepted_roles for r in ("full_body", "base_top", "bottom")):
+                    logger.warning(f"Removing {item_type} item {item_id}: body slot conflict")
+                    continue
+            elif role in ("base_top", "bottom"):
+                if "full_body" in accepted_roles or role in accepted_roles:
+                    logger.warning(f"Removing {item_type} item {item_id}: body slot conflict")
+                    continue
+            elif role in accepted_roles:
+                logger.warning(
+                    f"Removing duplicate {role} item {item_id} ({item_type}): "
+                    f"role already filled by {accepted_roles[role]}"
+                )
+                continue
+
+            accepted_roles[role] = item_id
+            accepted.append(item_id)
+
+        accepted_set = set(accepted)
+        result = [item_id for item_id in selected_item_ids if item_id in accepted_set]
+        for item_id in required_item_ids:
+            if item_id in accepted_set and item_id not in result:
+                result.append(item_id)
+
+        missing_required = required_set - set(result)
+        if missing_required:
+            raise AIRecommendationError(
+                "AI did not produce a valid outfit containing the required item(s)"
+            )
+
+        return result
 
     def _format_preferences_for_prompt(
         self,
@@ -548,7 +632,9 @@ class RecommendationService:
         source: OutfitSource,
         number_map: dict[int, UUID],
         scheduled_date: date | None = None,
+        required_item_ids: list[UUID] | None = None,
     ) -> Outfit:
+        required_item_ids = required_item_ids or []
         selected_numbers = outfit_data.get("items", [])
         valid_ids = []
 
@@ -570,15 +656,24 @@ class RecommendationService:
                 unique_ids.append(item_id)
         valid_ids = unique_ids
 
+        for item_id in required_item_ids:
+            if item_id not in valid_ids:
+                valid_ids.append(item_id)
+
         if not valid_ids:
             raise AIRecommendationError("AI did not select any valid items")
 
-        # Deduplicate by body slot (e.g. prevent shorts + pants)
+        # Deduplicate by body slot (e.g. prevent shorts + pants), while preserving
+        # explicitly required items selected by the user.
         items_result = await self.db.execute(
             select(ClothingItem.id, ClothingItem.type).where(ClothingItem.id.in_(valid_ids))
         )
         item_type_map = {row.id: (row.type or "").lower() for row in items_result}
-        valid_ids = deduplicate_by_body_slot(valid_ids, item_type_map)
+        valid_ids = self._deduplicate_selected_items(
+            valid_ids,
+            item_type_map,
+            required_item_ids=required_item_ids,
+        )
 
         reasoning = outfit_data.get("headline") or outfit_data.get("reasoning")
         style_notes = outfit_data.get("styling_tip") or outfit_data.get("style_notes")
@@ -644,7 +739,7 @@ class RecommendationService:
         scheduled_date: date | None = None,
     ) -> Outfit:
         exclude_items = exclude_items or []
-        include_items = include_items or []
+        include_items = list(dict.fromkeys(include_items or []))
 
         if not time_of_day:
             time_of_day = get_time_of_day(user)
@@ -711,6 +806,14 @@ class RecommendationService:
                 candidates.extend(forced_items)
                 logger.info(f"Force-included {len(forced_items)} items in recommendation")
 
+            candidate_ids = {item.id for item in candidates}
+            unavailable_ids = include_set - candidate_ids
+            if unavailable_ids:
+                raise ValueError(
+                    "Required item is not available for recommendations. "
+                    "Please choose ready, unarchived wardrobe items."
+                )
+
         if len(candidates) < 2:
             raise InsufficientWardrobeError(
                 "Not enough items in wardrobe for recommendation. "
@@ -771,6 +874,7 @@ class RecommendationService:
 
         # Format enriched prompt
         items_text, number_map = self._format_items_for_prompt(scored, good_pairs, user_today)
+        required_items_text = self._format_required_items_for_prompt(include_items, number_map)
 
         worn_combinations = await self._get_recently_worn_outfit_combinations(user, days=7)
 
@@ -791,6 +895,7 @@ class RecommendationService:
             condition=weather.condition,
             precipitation_chance=weather.precipitation_chance,
             preferences_text=preferences_text,
+            required_items_text=required_items_text,
             items_text=items_text,
         )
 
@@ -831,6 +936,7 @@ class RecommendationService:
                     source,
                     number_map,
                     scheduled_date=scheduled_date,
+                    required_item_ids=include_items,
                 )
 
             # Multi-outfit parse
@@ -848,6 +954,7 @@ class RecommendationService:
                 source,
                 number_map,
                 scheduled_date=scheduled_date,
+                required_item_ids=include_items,
             )
 
             # Cache remaining outfits for "Try Another"
