@@ -62,7 +62,10 @@ class Settings(BaseSettings):
     )
 
     # Weather
+    weather_providers: str = Field(default="qweather,openmeteo")
     openmeteo_url: str = Field(default="https://api.open-meteo.com/v1")
+    qweather_api_key: str | None = Field(default=None)
+    qweather_api_host: str | None = Field(default=None)
 
     # Notifications - default ntfy channel (used when user has none configured)
     ntfy_server: str | None = None

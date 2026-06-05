@@ -8,6 +8,7 @@ import redis.asyncio as aioredis
 
 from app.services.weather_service import (
     CACHE_PREFIX,
+    STALE_CACHE_PREFIX,
     WMO_CODES,
     WeatherData,
     WeatherService,
@@ -47,6 +48,53 @@ SAMPLE_FORECAST_RESPONSE = {
     },
 }
 
+SAMPLE_QWEATHER_NOW_RESPONSE = {
+    "code": "200",
+    "now": {
+        "obsTime": "2026-02-28T12:10+08:00",
+        "temp": "24",
+        "feelsLike": "26",
+        "icon": "101",
+        "text": "多云",
+        "windSpeed": "3",
+        "humidity": "72",
+        "precip": "0.0",
+    },
+}
+
+SAMPLE_QWEATHER_HOURLY_RESPONSE = {
+    "code": "200",
+    "hourly": [
+        {
+            "fxTime": "2026-02-28T13:00+08:00",
+            "pop": "45",
+            "precip": "0.0",
+        }
+    ],
+}
+
+SAMPLE_QWEATHER_FORECAST_RESPONSE = {
+    "code": "200",
+    "daily": [
+        {
+            "fxDate": "2026-02-28",
+            "tempMax": "24",
+            "tempMin": "17",
+            "iconDay": "101",
+            "textDay": "多云",
+            "precip": "0.0",
+        },
+        {
+            "fxDate": "2026-03-01",
+            "tempMax": "21",
+            "tempMin": "14",
+            "iconDay": "305",
+            "textDay": "小雨",
+            "precip": "2.1",
+        },
+    ],
+}
+
 
 def _make_weather_data(**overrides) -> WeatherData:
     defaults = {
@@ -68,7 +116,17 @@ def _make_weather_data(**overrides) -> WeatherData:
 
 @pytest.fixture
 def weather_service():
-    return WeatherService()
+    service = WeatherService()
+    service.qweather_api_key = None
+    service.qweather_api_host = ""
+    service.provider_order = ["openmeteo"]
+    return service
+
+
+def _enable_qweather(service: WeatherService, providers: list[str] | None = None) -> None:
+    service.qweather_api_key = "test-qweather-key"
+    service.qweather_api_host = "example.qweatherapi.com"
+    service.provider_order = providers or ["qweather", "openmeteo"]
 
 
 @pytest.fixture
@@ -83,6 +141,12 @@ def mock_redis():
 class TestCacheKey:
     def test_rounds_coordinates(self):
         assert WeatherService._cache_key(40.7142, -74.0059) == f"{CACHE_PREFIX}40.71,-74.01"
+
+    def test_stale_key_rounds_coordinates(self):
+        assert (
+            WeatherService._stale_cache_key(40.7142, -74.0059)
+            == f"{STALE_CACHE_PREFIX}40.71,-74.01"
+        )
 
     def test_exact_coordinates(self):
         assert WeatherService._cache_key(50.0, 10.0) == f"{CACHE_PREFIX}50.0,10.0"
@@ -107,6 +171,17 @@ class TestCacheGet:
         assert result.condition == "partly cloudy"
 
     @pytest.mark.asyncio
+    async def test_returns_stale_weather_data_on_hit(self, weather_service, mock_redis):
+        cached = _make_weather_data(temperature=19.0)
+        mock_redis.get.return_value = json.dumps(cached.to_dict())
+
+        result = await weather_service._cache_get(40.71, -74.01, stale=True)
+
+        assert result is not None
+        assert result.temperature == 19.0
+        mock_redis.get.assert_called_with(f"{STALE_CACHE_PREFIX}40.71,-74.01")
+
+    @pytest.mark.asyncio
     async def test_returns_none_on_redis_error(self, weather_service):
         with patch(
             "app.services.weather_service.get_redis",
@@ -122,12 +197,13 @@ class TestCacheSet:
         data = _make_weather_data()
         await weather_service._cache_set(40.71, -74.01, data)
 
-        mock_redis.set.assert_called_once()
-        call_args = mock_redis.set.call_args
-        assert call_args[0][0] == f"{CACHE_PREFIX}40.71,-74.01"
-        assert call_args[1]["ex"] == 3600
+        assert mock_redis.set.call_count == 2
+        fresh_call, stale_call = mock_redis.set.call_args_list
+        assert fresh_call[0][0] == f"{CACHE_PREFIX}40.71,-74.01"
+        assert fresh_call[1]["ex"] == 3600
+        assert stale_call[0][0] == f"{STALE_CACHE_PREFIX}40.71,-74.01"
 
-        stored = json.loads(call_args[0][1])
+        stored = json.loads(fresh_call[0][1])
         assert stored["temperature"] == 22.5
 
     @pytest.mark.asyncio
@@ -185,6 +261,47 @@ class TestGetCurrentWeather:
         assert result.is_day is True
 
     @pytest.mark.asyncio
+    async def test_fetches_from_qweather_when_configured(self, weather_service, mock_redis):
+        _enable_qweather(weather_service, providers=["qweather"])
+        now_response = _mock_response(json_data=SAMPLE_QWEATHER_NOW_RESPONSE)
+        hourly_response = _mock_response(json_data=SAMPLE_QWEATHER_HOURLY_RESPONSE)
+
+        with patch("httpx.AsyncClient.get", side_effect=[now_response, hourly_response]) as mock_get:
+            result = await weather_service.get_current_weather(40.71, -74.01)
+
+        assert result.temperature == 24.0
+        assert result.feels_like == 26.0
+        assert result.humidity == 72
+        assert result.precipitation_chance == 45
+        assert result.wind_speed == 3.0
+        assert result.condition == "partly cloudy"
+        assert result.condition_code == 101
+        assert result.is_day is True
+
+        first_call = mock_get.call_args_list[0]
+        assert first_call.args[0] == "https://example.qweatherapi.com/v7/weather/now"
+        assert first_call.kwargs["params"]["location"] == "-74.01,40.71"
+        assert first_call.kwargs["headers"]["X-QW-Api-Key"] == "test-qweather-key"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_openmeteo_when_qweather_fails(
+        self, weather_service, mock_redis
+    ):
+        _enable_qweather(weather_service)
+        qweather_error = _mock_response(json_data={"code": "401"})
+        openmeteo_response = _mock_response(json_data=SAMPLE_API_RESPONSE)
+
+        with patch(
+            "httpx.AsyncClient.get",
+            side_effect=[qweather_error, qweather_error, openmeteo_response],
+        ) as mock_get:
+            result = await weather_service.get_current_weather(40.71, -74.01)
+
+        assert result.temperature == 22.5
+        assert result.condition == "partly cloudy"
+        assert mock_get.call_count == 3
+
+    @pytest.mark.asyncio
     async def test_returns_cached_data(self, weather_service, mock_redis):
         cached = _make_weather_data(temperature=15.0)
         mock_redis.get.return_value = json.dumps(cached.to_dict())
@@ -208,7 +325,32 @@ class TestGetCurrentWeather:
         with patch("httpx.AsyncClient.get", return_value=mock_response):
             await weather_service.get_current_weather(40.71, -74.01)
 
-        mock_redis.set.assert_called_once()
+        assert mock_redis.set.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_api_error(self, weather_service, mock_redis):
+        mock_response = _mock_response(json_data=SAMPLE_API_RESPONSE)
+        with patch(
+            "httpx.AsyncClient.get",
+            side_effect=[httpx.ConnectError("temporary failure"), mock_response],
+        ) as mock_get:
+            result = await weather_service.get_current_weather(40.71, -74.01)
+
+        assert result.temperature == 22.5
+        assert mock_get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_returns_stale_cache_on_api_error(self, weather_service, mock_redis):
+        stale = _make_weather_data(temperature=18.0)
+        mock_redis.get.side_effect = [None, json.dumps(stale.to_dict())]
+
+        with patch(
+            "httpx.AsyncClient.get",
+            side_effect=httpx.ConnectError("connection refused"),
+        ):
+            result = await weather_service.get_current_weather(40.71, -74.01)
+
+        assert result.temperature == 18.0
 
     @pytest.mark.asyncio
     async def test_raises_on_invalid_coordinates(self, weather_service):
@@ -249,6 +391,27 @@ class TestGetDailyForecast:
         assert result[0].temp_max == 18.0
         assert result[0].condition == "sunny"
         assert result[1].condition == "light rain"
+
+    @pytest.mark.asyncio
+    async def test_returns_qweather_forecast_days(self, weather_service, mock_redis):
+        _enable_qweather(weather_service, providers=["qweather"])
+        mock_response = _mock_response(json_data=SAMPLE_QWEATHER_FORECAST_RESPONSE)
+
+        with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
+            result = await weather_service.get_daily_forecast(40.71, -74.01, days=2)
+
+        assert len(result) == 2
+        assert result[0].date == "2026-02-28"
+        assert result[0].temp_max == 24.0
+        assert result[0].condition == "partly cloudy"
+        assert result[0].precipitation_chance == 0
+        assert result[1].date == "2026-03-01"
+        assert result[1].temp_min == 14.0
+        assert result[1].condition == "light rain"
+        assert result[1].precipitation_chance == 80
+
+        first_call = mock_get.call_args_list[0]
+        assert first_call.args[0] == "https://example.qweatherapi.com/v7/weather/3d"
 
     @pytest.mark.asyncio
     async def test_caps_days_at_16(self, weather_service, mock_redis):
